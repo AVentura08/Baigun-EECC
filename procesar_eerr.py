@@ -1,142 +1,141 @@
 import os
-import glob
 import pandas as pd
-from supabase import create_client
+from supabase import create_client, Client
 
-# Credenciales exactas de tu proyecto Supabase
-SUPABASE_URL = "https://xvuyzjwnixbvavbvmzct.supabase.co"
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "sb_publishable_LsnpSgrmFUNC3tMba2YF0g_zb_lZE2k")
+# Configuración de credenciales Supabase desde Secrets / Variables de entorno
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 
-supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+if not SUPABASE_URL or not SUPABASE_KEY:
+    raise ValueError("⚠️ Error: Las variables SUPABASE_URL y SUPABASE_KEY deben estar configuradas.")
 
-MAPEO_AREAS = {
-    'Comercial': 'com',
-    'Residencial': 'usa',
-    'Emprendimientos': 'emp',
-    'Terrenos': 'ter',
-    'Especiales': 'esp'
-}
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-def obtener_area_id(sector_texto):
-    if pd.isna(sector_texto):
+def mapear_area(area_str):
+    if not isinstance(area_str, str):
         return 'com'
-    sector_str = str(sector_texto).strip()
-    return MAPEO_AREAS.get(sector_str, 'com')
+    val = area_str.lower().strip()
+    if 'com' in val: return 'com'
+    if 'usa' in val or 'res' in val: return 'usa'
+    if 'emp' in val: return 'emp'
+    if 'ter' in val: return 'ter'
+    if 'esp' in val: return 'esp'
+    return 'com'
 
-def buscar_archivo(patron):
-    coincidencias = glob.glob(patron)
-    return coincidencias[0] if coincidencias else None
-
-# 1. INGRESOS
 def cargar_ingresos():
-    archivo = buscar_archivo("Ingresos*.xlsx")
-    if not archivo:
-        print("⚠️ No se encontró archivo de Ingresos.")
+    archivo = "Ingresos.xlsx"
+    if not os.path.exists(archivo):
+        print(f"⚠️ {archivo} no encontrado. Se omite.")
         return
-    
+
     print(f"📖 Leyendo: {archivo}")
     df = pd.read_excel(archivo)
-    df['Monto'] = pd.to_numeric(df['Monto'], errors='coerce').fillna(0)
-    df['Monto.1'] = pd.to_numeric(df['Monto.1'], errors='coerce').fillna(0)
-    df['Cotización'] = pd.to_numeric(df['Cotización'], errors='coerce').replace(0, pd.NA).fillna(1)
-    
-    df['Total_USD'] = df['Monto.1'] + (df['Monto'] / df['Cotización'])
-    
+    df.columns = [str(c).strip().lower() for c in df.columns]
+
     registros = []
     for _, row in df.iterrows():
-        if pd.isna(row.get('Fecha')):
+        try:
+            fecha = pd.to_datetime(row.get('fecha'))
+            monto = float(row.get('monto_usd', row.get('monto', 0)))
+            if pd.isna(monto): monto = 0.0
+
+            registros.append({
+                "fecha": fecha.strftime('%Y-%m-%d'),
+                "mes": int(fecha.month),
+                "anio": int(fecha.year),
+                "area_id": mapear_area(str(row.get('area', 'com'))),
+                "monto_usd": monto,
+                "concepto": str(row.get('concepto', '')) if not pd.isna(row.get('concepto')) else ''
+            })
+        except Exception as e:
             continue
-        fecha = pd.to_datetime(row['Fecha'])
-        registros.append({
-            "fecha": fecha.strftime('%Y-%m-%d'),
-            "mes": fecha.month,
-            "anio": fecha.year,
-            "area_id": obtener_area_id(row.get('Sector')),
-            "monto_usd": round(float(row['Total_USD']), 2),
-            "concepto": str(row['Nombre']) if pd.notna(row.get('Nombre')) else "Ingreso general"
-        })
+
     if registros:
+        # Limpieza previa para evitar duplicados
+        supabase.table("eerr_ingresos").delete().neq("id", 0).execute()
         supabase.table("eerr_ingresos").insert(registros).execute()
-        print(f"✅ Ingresos procesados: {len(registros)} filas.")
+        print(f"✅ Ingresos cargados con éxito: {len(registros)} filas.")
 
-# 2. COMISIONES
 def cargar_comisiones():
-    archivo = buscar_archivo("Comisiones*.xlsx")
-    if not archivo:
-        print("⚠️ No se encontró archivo de Comisiones.")
+    archivo = "Comisiones.xlsx"
+    if not os.path.exists(archivo):
+        print(f"⚠️ {archivo} no encontrado. Se omite.")
         return
-    
+
     print(f"📖 Leyendo: {archivo}")
     df = pd.read_excel(archivo)
-    df['Monto de Comision'] = pd.to_numeric(df['Monto de Comision'], errors='coerce').fillna(0)
-    df['Cotización'] = pd.to_numeric(df['Cotización'], errors='coerce').replace(0, pd.NA).fillna(1)
-    
-    def calc_com_usd(row):
-        moneda = str(row.get('Moneda', '')).strip()
-        monto = row['Monto de Comision']
-        cotiz = row['Cotización']
-        if 'U$S' in moneda or 'USD' in moneda:
-            return monto
-        else:
-            return monto / cotiz if cotiz else 0
+    df.columns = [str(c).strip().lower() for c in df.columns]
 
-    df['Total_USD'] = df.apply(calc_com_usd, axis=1)
-    
     registros = []
     for _, row in df.iterrows():
-        if pd.isna(row.get('Fecha')):
+        try:
+            fecha = pd.to_datetime(row.get('fecha'))
+            monto = float(row.get('monto_usd', row.get('monto', 0)))
+            if pd.isna(monto): monto = 0.0
+
+            registros.append({
+                "fecha": fecha.strftime('%Y-%m-%d'),
+                "mes": int(fecha.month),
+                "anio": int(fecha.year),
+                "area_id": mapear_area(str(row.get('area', 'com'))),
+                "monto_usd": monto,
+                "concepto": str(row.get('concepto', '')) if not pd.isna(row.get('concepto')) else ''
+            })
+        except Exception as e:
             continue
-        fecha = pd.to_datetime(row['Fecha'])
-        registros.append({
-            "fecha": fecha.strftime('%Y-%m-%d'),
-            "mes": fecha.month,
-            "anio": fecha.year,
-            "area_id": obtener_area_id(row.get('Sector')),
-            "monto_usd": round(float(row['Total_USD']), 2),
-            "concepto": str(row['Ingreso']) if pd.notna(row.get('Ingreso')) else "Comisión"
-        })
+
     if registros:
+        # Limpieza previa para evitar duplicados
+        supabase.table("eerr_comisiones").delete().neq("id", 0).execute()
         supabase.table("eerr_comisiones").insert(registros).execute()
-        print(f"✅ Comisiones procesadas: {len(registros)} filas.")
+        print(f"✅ Comisiones cargadas con éxito: {len(registros)} filas.")
 
-# 3. GASTOS
 def cargar_gastos():
-    archivo = buscar_archivo("Gastos*.xlsx")
-    if not archivo:
-        print("⚠️ No se encontró archivo de Gastos.")
+    archivo = "Gastos.xlsx"
+    if not os.path.exists(archivo):
+        print(f"⚠️ {archivo} no encontrado. Se omite.")
         return
-    
+
     print(f"📖 Leyendo: {archivo}")
     df = pd.read_excel(archivo)
-    df['Monto'] = pd.to_numeric(df['Monto'], errors='coerce').fillna(0)
-    df['Cotización'] = pd.to_numeric(df['Cotización'], errors='coerce').replace(0, pd.NA).fillna(1)
-    df['Total_USD'] = df['Monto'] / df['Cotización']
-    
+    df.columns = [str(c).strip().lower() for c in df.columns]
+
     registros = []
     for _, row in df.iterrows():
-        if pd.isna(row.get('Fecha')):
+        try:
+            fecha = pd.to_datetime(row.get('fecha'))
+            monto_real = float(row.get('monto_real_usd', row.get('monto_real', row.get('monto', 0))))
+            monto_presu = float(row.get('monto_presupuestado_usd', row.get('presupuesto', 0)))
+            
+            if pd.isna(monto_real): monto_real = 0.0
+            if pd.isna(monto_presu): monto_presu = 0.0
+
+            tipo = str(row.get('tipo_rubro', 'opex')).lower().strip()
+            if tipo not in ['opex', 'capex']: tipo = 'opex'
+
+            registros.append({
+                "fecha": fecha.strftime('%Y-%m-%d'),
+                "mes": int(fecha.month),
+                "anio": int(fecha.year),
+                "tipo_rubro": tipo,
+                "driver": str(row.get('driver', '')) if not pd.isna(row.get('driver')) else '',
+                "concepto_analitico": str(row.get('concepto_analitico', '')) if not pd.isna(row.get('concepto_analitico')) else '',
+                "monto_real_usd": monto_real,
+                "monto_presupuestado_usd": monto_presu,
+                "area_id": mapear_area(str(row.get('area', 'com')))
+            })
+        except Exception as e:
             continue
-        fecha = pd.to_datetime(row['Fecha'])
-        tipo_gasto = str(row.get('Tipo de gasto', '')).lower()
-        tipo_rubro = 'capex' if 'capex' in tipo_gasto or 'inversion' in tipo_gasto else 'opex'
-        
-        registros.append({
-            "fecha": fecha.strftime('%Y-%m-%d'),
-            "mes": fecha.month,
-            "anio": fecha.year,
-            "tipo_rubro": tipo_rubro,
-            "driver": "ofi",
-            "concepto_analitico": str(row['Nombre']) if pd.notna(row.get('Nombre')) else "Gasto operativo",
-            "monto_real_usd": round(float(row['Total_USD']), 2),
-            "monto_presupuestado_usd": 0,
-            "area_id": obtener_area_id(row.get('Sector'))
-        })
+
     if registros:
+        # Limpieza previa para evitar duplicados
+        supabase.table("eerr_gastos").delete().neq("id", 0).execute()
         supabase.table("eerr_gastos").insert(registros).execute()
-        print(f"✅ Gastos procesados: {len(registros)} filas.")
+        print(f"✅ Gastos cargados con éxito: {len(registros)} filas.")
 
 if __name__ == "__main__":
+    print("🚀 Iniciando procesamiento automático de EERR...")
     cargar_ingresos()
     cargar_comisiones()
     cargar_gastos()
-    print("🚀 ¡Proceso finalizado correctamente!")
+    print("🎉 Proceso finalizado.")
