@@ -37,7 +37,6 @@
                 </select>
             </div>
 
-            <!-- Eje Horizontal de Meses -->
             <div class="flex items-center gap-1 bg-slate-900/80 p-1 rounded-lg border border-slate-800 overflow-x-auto" id="barraMeses">
                 <button onclick="seleccionarMes('todos')" data-mes="todos" class="btn-mes px-3 py-1 text-xs font-medium rounded-md bg-indigo-600 text-white transition">Acumulado</button>
                 <button onclick="seleccionarMes(1)" data-mes="1" class="btn-mes px-3 py-1 text-xs font-medium rounded-md text-slate-400 hover:text-white transition">Ene</button>
@@ -98,7 +97,7 @@
             <div class="text-center"><span class="text-[10px] text-slate-500 block font-sans">RESULT. NETO</span><span id="fNet" class="font-bold text-sm text-emerald-400">$0</span></div>
         </section>
 
-        <!-- Matriz por Unidad de Negocio -->
+        <!-- Matriz por Unidad de Negocio con Porcentajes -->
         <section class="bg-[#111827] border border-slate-800/80 rounded-xl p-6">
             <h3 class="text-sm font-semibold text-slate-200 mb-6">Resultado por unidad de negocio (USD)</h3>
             <div class="overflow-x-auto">
@@ -116,7 +115,7 @@
                     </thead>
                     <tbody class="divide-y divide-slate-800/50 text-slate-300">
                         <tr>
-                            <td class="text-left py-4 font-medium text-slate-200">Ingresos</td>
+                            <td class="text-left py-3.5 font-medium text-slate-200">Ingresos</td>
                             <td id="m_ing_com" class="px-4">$0</td>
                             <td id="m_ing_emp" class="px-4">$0</td>
                             <td id="m_ing_usa" class="px-4">$0</td>
@@ -125,7 +124,7 @@
                             <td id="m_ing_tot" class="px-4 font-bold text-white border-l border-slate-800">$0</td>
                         </tr>
                         <tr>
-                            <td class="text-left py-4 font-medium text-slate-200">Comisiones</td>
+                            <td class="text-left py-3.5 font-medium text-slate-200">Comisiones</td>
                             <td id="m_com_com" class="px-4">$0</td>
                             <td id="m_com_emp" class="px-4">$0</td>
                             <td id="m_com_usa" class="px-4">$0</td>
@@ -133,14 +132,32 @@
                             <td id="m_com_esp" class="px-4">$0</td>
                             <td id="m_com_tot" class="px-4 font-bold text-white border-l border-slate-800">$0</td>
                         </tr>
+                        <tr class="text-[11px] text-indigo-400/90 italic bg-slate-900/20">
+                            <td class="text-left py-2 font-normal pl-4">% Comisiones / Ingresos</td>
+                            <td id="p_com_com" class="px-4">0.0%</td>
+                            <td id="p_com_emp" class="px-4">0.0%</td>
+                            <td id="p_com_usa" class="px-4">0.0%</td>
+                            <td id="p_com_ter" class="px-4">0.0%</td>
+                            <td id="p_com_esp" class="px-4">0.0%</td>
+                            <td id="p_com_tot" class="px-4 font-semibold border-l border-slate-800">0.0%</td>
+                        </tr>
                         <tr class="bg-slate-900/40 font-semibold text-white">
-                            <td class="text-left py-4 text-slate-200">Margen de contribución</td>
+                            <td class="text-left py-3.5 text-slate-200">Margen de contribución</td>
                             <td id="m_mar_com" class="px-4">$0</td>
                             <td id="m_mar_emp" class="px-4">$0</td>
                             <td id="m_mar_usa" class="px-4">$0</td>
                             <td id="m_mar_ter" class="px-4">$0</td>
                             <td id="m_mar_esp" class="px-4">$0</td>
                             <td id="m_mar_tot" class="px-4 font-bold text-white border-l border-slate-800">$0</td>
+                        </tr>
+                        <tr class="text-[11px] text-emerald-400/90 italic bg-slate-900/20">
+                            <td class="text-left py-2 font-normal pl-4">% Margen / Ingresos</td>
+                            <td id="p_mar_com" class="px-4">0.0%</td>
+                            <td id="p_mar_emp" class="px-4">0.0%</td>
+                            <td id="p_mar_usa" class="px-4">0.0%</td>
+                            <td id="p_mar_ter" class="px-4">0.0%</td>
+                            <td id="p_mar_esp" class="px-4">0.0%</td>
+                            <td id="p_mar_tot" class="px-4 font-semibold border-l border-slate-800">0.0%</td>
                         </tr>
                     </tbody>
                 </table>
@@ -201,6 +218,10 @@
             return "$" + Math.round(num).toLocaleString('es-AR');
         }
 
+        function fmtPct(num) {
+            return num.toFixed(1) + "%";
+        }
+
         function aplicarFiltros() {
             const anioSel = document.getElementById('filtroAnio').value;
             
@@ -246,14 +267,24 @@
                 const cArea = fCom.filter(r => r.area_id === area).reduce((a, r) => a + Number(r.monto_usd || 0), 0);
                 const mArea = iArea - cArea;
 
+                const pctCom = iArea > 0 ? (cArea / iArea) * 100 : 0;
+                const pctMar = iArea > 0 ? (mArea / iArea) * 100 : 0;
+
                 document.getElementById(`m_ing_${area}`).innerText = fmt(iArea);
                 document.getElementById(`m_com_${area}`).innerText = fmt(cArea);
+                document.getElementById(`p_com_${area}`).innerText = fmtPct(pctCom);
                 document.getElementById(`m_mar_${area}`).innerText = fmt(mArea);
+                document.getElementById(`p_mar_${area}`).innerText = fmtPct(pctMar);
             });
+
+            const pctComTot = ingTot > 0 ? (comTot / ingTot) * 100 : 0;
+            const pctMarTot = ingTot > 0 ? (marTot / ingTot) * 100 : 0;
 
             document.getElementById('m_ing_tot').innerText = fmt(ingTot);
             document.getElementById('m_com_tot').innerText = fmt(comTot);
+            document.getElementById('p_com_tot').innerText = fmtPct(pctComTot);
             document.getElementById('m_mar_tot').innerText = fmt(marTot);
+            document.getElementById('p_mar_tot').innerText = fmtPct(pctMarTot);
         }
 
         window.onload = cargarDatos;
