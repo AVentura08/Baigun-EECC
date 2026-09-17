@@ -3,9 +3,9 @@ import glob
 import pandas as pd
 from supabase import create_client
 
-# Credenciales directas e infalibles
-SUPABASE_URL = "https://xvuyzjwnlxbvavbvmzct.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh2dXl6andubHhidmF2YnZtemN0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDIzMDU0ODcsImV4cCI6MjA1Nzg4MTQ4N30.K3f-2Pms0iU_DClf31f9Z_Rk_qgS6O-oP663iO_648A"
+# Credenciales exactas de tu proyecto Supabase
+SUPABASE_URL = "https://xvuyzjwnixbvavbvmzct.supabase.co"
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "sb_publishable_LsnpSgrmFUNC3tMba2YF0g_zb_lZE2k")
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
@@ -44,7 +44,7 @@ def cargar_ingresos():
     
     registros = []
     for _, row in df.iterrows():
-        if pd.isna(row['Fecha']):
+        if pd.isna(row.get('Fecha')):
             continue
         fecha = pd.to_datetime(row['Fecha'])
         registros.append({
@@ -84,7 +84,7 @@ def cargar_comisiones():
     
     registros = []
     for _, row in df.iterrows():
-        if pd.isna(row['Fecha']):
+        if pd.isna(row.get('Fecha')):
             continue
         fecha = pd.to_datetime(row['Fecha'])
         registros.append({
@@ -114,7 +114,7 @@ def cargar_gastos():
     
     registros = []
     for _, row in df.iterrows():
-        if pd.isna(row['Fecha']):
+        if pd.isna(row.get('Fecha')):
             continue
         fecha = pd.to_datetime(row['Fecha'])
         tipo_gasto = str(row.get('Tipo de gasto', '')).lower()
