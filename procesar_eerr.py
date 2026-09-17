@@ -3,11 +3,12 @@ import glob
 import pandas as pd
 from supabase import create_client
 
-SUPABASE_URL = os.environ.get("SUPABASE_URL")
+# URL fija directa para evitar fallas de lectura en GitHub Secrets
+SUPABASE_URL = "https://xvuyzjwnlxbvavbvmzct.supabase.co"
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 
-if not SUPABASE_URL or not SUPABASE_KEY:
-    raise ValueError("❌ Error: No se encontraron las variables SUPABASE_URL o SUPABASE_KEY en los Secrets de GitHub.")
+if not SUPABASE_KEY:
+    raise ValueError("❌ Error: No se encontró la variable SUPABASE_KEY en los Secrets de GitHub.")
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
