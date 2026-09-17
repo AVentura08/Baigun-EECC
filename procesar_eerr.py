@@ -23,29 +23,44 @@ def mapear_area(area_str):
 def float_val(v):
     try:
         if pd.isna(v): return 0.0
+        # Reemplazar formatos de moneda comunes si vienen como string
+        if isinstance(v, str):
+            v = v.replace('$', '').replace('.', '').replace(',', '.').strip()
         return float(v)
     except:
         return 0.0
 
 def cargar_ingresos():
-    if not os.path.exists("Ingresos.xlsx"): return
+    if not os.path.exists("Ingresos.xlsx"):
+        print("❌ No se encontró Ingresos.xlsx")
+        return
+
     print("📖 Leyendo: Ingresos.xlsx")
     df = pd.read_excel("Ingresos.xlsx")
     df.columns = [str(c).strip().lower() for c in df.columns]
 
     registros = []
-    for _, row in df.iterrows():
-        try:
-            fecha = pd.to_datetime(row.get('fecha'))
-            if pd.isna(fecha): continue
+    suma_total_debug = 0.0
+    filas_omitidas = 0
 
-            # Formula exacta: Monto2 (USD directos) + (Monto Pesos / Cotizacion)
+    for idx, row in df.iterrows():
+        try:
+            fecha_val = row.get('fecha')
+            if pd.isna(fecha_val):
+                filas_omitidas += 1
+                continue
+
+            fecha = pd.to_datetime(fecha_val)
+
+            # Suma combinada exactas
             monto2_usd = float_val(row.get('monto2'))
             monto_ars = float_val(row.get('monto'))
             cotiz = float_val(row.get('cotización', row.get('cotizacion')))
 
             monto_ars_convertido = (monto_ars / cotiz) if (monto_ars > 0 and cotiz > 0) else 0.0
             total_usd = round(monto2_usd + monto_ars_convertido, 2)
+
+            suma_total_debug += total_usd
 
             registros.append({
                 "fecha": fecha.strftime('%Y-%m-%d'),
@@ -55,16 +70,19 @@ def cargar_ingresos():
                 "monto_usd": total_usd,
                 "concepto": str(row.get('tipo de operación', 'Ingreso')) if not pd.isna(row.get('tipo de operación')) else 'Ingreso'
             })
-        except: continue
+        except Exception as e:
+            filas_omitidas += 1
+            continue
+
+    print(f"📊 DEBUG INGRESOS -> Filas procesadas: {len(registros)} | Omitidas: {filas_omitidas} | Suma calculada: ${suma_total_debug:,.2f} USD")
 
     if registros:
         supabase.table("eerr_ingresos").delete().neq("id", 0).execute()
         supabase.table("eerr_ingresos").insert(registros).execute()
-        print(f"✅ Ingresos procesados: {len(registros)} filas.")
+        print("✅ Ingresos subidos correctamente a Supabase.")
 
 def cargar_comisiones():
     if not os.path.exists("Comisiones.xlsx"): return
-    print("📖 Leyendo: Comisiones.xlsx")
     df = pd.read_excel("Comisiones.xlsx")
     df.columns = [str(c).strip().lower() for c in df.columns]
 
@@ -99,11 +117,9 @@ def cargar_comisiones():
     if registros:
         supabase.table("eerr_comisiones").delete().neq("id", 0).execute()
         supabase.table("eerr_comisiones").insert(registros).execute()
-        print(f"✅ Comisiones procesadas: {len(registros)} filas.")
 
 def cargar_gastos():
     if not os.path.exists("Gastos.xlsx"): return
-    print("📖 Leyendo: Gastos.xlsx")
     df = pd.read_excel("Gastos.xlsx")
     df.columns = [str(c).strip().lower() for c in df.columns]
 
@@ -117,7 +133,7 @@ def cargar_gastos():
             cotiz = float_val(row.get('cotización', row.get('cotizacion')))
             moneda = str(row.get('moneda', '')).lower()
 
-            if 'pes' in moneda or '$' in moneda:
+            if 'pes' in mon or '$' in mon:
                 monto_usd = round(monto / cotiz, 2) if cotiz > 0 else monto
             else:
                 monto_usd = monto
@@ -140,11 +156,8 @@ def cargar_gastos():
     if registros:
         supabase.table("eerr_gastos").delete().neq("id", 0).execute()
         supabase.table("eerr_gastos").insert(registros).execute()
-        print(f"✅ Gastos procesados: {len(registros)} filas.")
 
 if __name__ == "__main__":
-    print("🚀 Iniciando procesamiento automático de EERR...")
     cargar_ingresos()
     cargar_comisiones()
     cargar_gastos()
-    print("🎉 Proceso finalizado.")
