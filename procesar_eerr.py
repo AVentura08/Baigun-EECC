@@ -29,6 +29,7 @@ def float_val(v):
 
 def cargar_ingresos():
     if not os.path.exists("Ingresos.xlsx"): return
+    print("📖 Leyendo: Ingresos.xlsx")
     df = pd.read_excel("Ingresos.xlsx")
     df.columns = [str(c).strip().lower() for c in df.columns]
 
@@ -38,23 +39,20 @@ def cargar_ingresos():
             fecha = pd.to_datetime(row.get('fecha'))
             if pd.isna(fecha): continue
 
-            # Prioridad estricta para Ingresos
-            m2 = float_val(row.get('monto2'))
-            dls = float_val(row.get('dolares'))
-            monto = float_val(row.get('monto'))
-            cot = float_val(row.get('cotización', row.get('cotizacion')))
+            # Formula exacta: Monto2 (USD directos) + (Monto Pesos / Cotizacion)
+            monto2_usd = float_val(row.get('monto2'))
+            monto_ars = float_val(row.get('monto'))
+            cotiz = float_val(row.get('cotización', row.get('cotizacion')))
 
-            if m2 > 0: monto_usd = m2
-            elif dls > 0: monto_usd = dls
-            elif monto > 0 and cot > 0: monto_usd = round(monto / cot, 2)
-            else: monto_usd = monto
+            monto_ars_convertido = (monto_ars / cotiz) if (monto_ars > 0 and cotiz > 0) else 0.0
+            total_usd = round(monto2_usd + monto_ars_convertido, 2)
 
             registros.append({
                 "fecha": fecha.strftime('%Y-%m-%d'),
                 "mes": int(fecha.month),
                 "anio": int(fecha.year),
                 "area_id": mapear_area(str(row.get('sector', 'com'))),
-                "monto_usd": monto_usd,
+                "monto_usd": total_usd,
                 "concepto": str(row.get('tipo de operación', 'Ingreso')) if not pd.isna(row.get('tipo de operación')) else 'Ingreso'
             })
         except: continue
@@ -62,9 +60,11 @@ def cargar_ingresos():
     if registros:
         supabase.table("eerr_ingresos").delete().neq("id", 0).execute()
         supabase.table("eerr_ingresos").insert(registros).execute()
+        print(f"✅ Ingresos procesados: {len(registros)} filas.")
 
 def cargar_comisiones():
     if not os.path.exists("Comisiones.xlsx"): return
+    print("📖 Leyendo: Comisiones.xlsx")
     df = pd.read_excel("Comisiones.xlsx")
     df.columns = [str(c).strip().lower() for c in df.columns]
 
@@ -74,23 +74,17 @@ def cargar_comisiones():
             fecha = pd.to_datetime(row.get('fecha'))
             if pd.isna(fecha): continue
 
-            # Prioridad estricta para Comisiones
             m_com = float_val(row.get('monto de comision'))
             tot_dls = float_val(row.get('ingreso monto total dolares'))
-            cot = float_val(row.get('cotización', row.get('cotizacion')))
-            mon = str(row.get('moneda', '')).lower()
+            cotiz = float_val(row.get('cotización', row.get('cotizacion')))
+            moneda = str(row.get('moneda', '')).lower()
 
-            if m_com > 0:
-                if 'u$s' in mon or 'dolar' in mon or 'usd' in mon:
-                    monto_usd = m_com
-                elif cot > 0:
-                    monto_usd = round(m_com / cot, 2)
-                else:
-                    monto_usd = m_com
-            elif tot_dls > 0:
-                monto_usd = tot_dls
+            if 'u$s' in moneda or 'dolar' in moneda or 'usd' in moneda:
+                monto_usd = m_com if m_com > 0 else tot_dls
+            elif m_com > 0 and cotiz > 0:
+                monto_usd = round(m_com / cotiz, 2)
             else:
-                monto_usd = 0.0
+                monto_usd = m_com
 
             registros.append({
                 "fecha": fecha.strftime('%Y-%m-%d'),
@@ -105,9 +99,11 @@ def cargar_comisiones():
     if registros:
         supabase.table("eerr_comisiones").delete().neq("id", 0).execute()
         supabase.table("eerr_comisiones").insert(registros).execute()
+        print(f"✅ Comisiones procesadas: {len(registros)} filas.")
 
 def cargar_gastos():
     if not os.path.exists("Gastos.xlsx"): return
+    print("📖 Leyendo: Gastos.xlsx")
     df = pd.read_excel("Gastos.xlsx")
     df.columns = [str(c).strip().lower() for c in df.columns]
 
@@ -118,11 +114,11 @@ def cargar_gastos():
             if pd.isna(fecha): continue
 
             monto = float_val(row.get('monto'))
-            cot = float_val(row.get('cotización', row.get('cotizacion')))
-            mon = str(row.get('moneda', '')).lower()
+            cotiz = float_val(row.get('cotización', row.get('cotizacion')))
+            moneda = str(row.get('moneda', '')).lower()
 
-            if 'pes' in mon or '$' in mon:
-                monto_usd = round(monto / cot, 2) if cot > 0 else monto
+            if 'pes' in moneda or '$' in moneda:
+                monto_usd = round(monto / cotiz, 2) if cotiz > 0 else monto
             else:
                 monto_usd = monto
 
@@ -144,8 +140,11 @@ def cargar_gastos():
     if registros:
         supabase.table("eerr_gastos").delete().neq("id", 0).execute()
         supabase.table("eerr_gastos").insert(registros).execute()
+        print(f"✅ Gastos procesados: {len(registros)} filas.")
 
 if __name__ == "__main__":
+    print("🚀 Iniciando procesamiento automático de EERR...")
     cargar_ingresos()
     cargar_comisiones()
     cargar_gastos()
+    print("🎉 Proceso finalizado.")
