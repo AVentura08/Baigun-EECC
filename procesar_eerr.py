@@ -4,7 +4,7 @@ import pandas as pd
 from supabase import create_client
 
 # URL fija directa para evitar fallas de lectura en GitHub Secrets
-SUPABASE_URL = "https://xvuyzjwnlxbvavbvmzct.supabase.co"
+SUPABASE_URL = "https://xvuyzjwnlxbyavbvmzct.supabase.co"
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 
 if not SUPABASE_KEY:
