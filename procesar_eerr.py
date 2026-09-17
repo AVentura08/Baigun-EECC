@@ -10,14 +10,21 @@ if not SUPABASE_URL or not SUPABASE_KEY:
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-def mapear_area(area_str):
-    if not isinstance(area_str, str): return 'com'
-    val = area_str.lower().strip()
-    if 'com' in val: return 'com'
-    if 'usa' in val or 'res' in val: return 'usa'
-    if 'emp' in val: return 'emp'
-    if 'ter' in val: return 'ter'
-    if 'esp' in val: return 'esp'
+def mapear_area(sector_str, tipo_str=""):
+    sec = str(sector_str).lower().strip() if not pd.isna(sector_str) else ""
+    tipo = str(tipo_str).lower().strip() if not pd.isna(tipo_str) else ""
+
+    # Regla específica para Residencial
+    if 'res' in sec or 'usa' in sec:
+        if 'emp' in tipo or 'proy' in tipo or 'pozo' in tipo:
+            return 'emp'
+        return 'usa'
+    
+    if 'com' in sec: return 'com'
+    if 'emp' in sec: return 'emp'
+    if 'ter' in sec: return 'ter'
+    if 'esp' in sec: return 'esp'
+    
     return 'com'
 
 def float_val(v):
@@ -34,45 +41,41 @@ def float_val(v):
 
 def cargar_ingresos():
     if not os.path.exists("Ingresos.xlsx"): return
-
     print("📖 Leyendo: Ingresos.xlsx")
     df = pd.read_excel("Ingresos.xlsx")
 
     registros = []
-    suma_total_debug = 0.0
-
     for idx, row in df.iterrows():
         try:
             fecha_val = row.get('Fecha')
             if pd.isna(fecha_val): continue
             fecha = pd.to_datetime(fecha_val)
 
-            # Mapeo directo de columnas originales del Excel
             monto_pesos = float_val(row.get('Monto'))
-            monto_dolares = float_val(row.get('Monto.1')) # Pandas renombra la 2da col 'Monto' como 'Monto.1'
+            monto_dolares = float_val(row.get('Monto.1'))
             cotizacion = float_val(row.get('Cotización'))
 
             monto_ars_convertido = (monto_pesos / cotizacion) if (monto_pesos > 0 and cotizacion > 0) else 0.0
             total_usd = round(monto_dolares + monto_ars_convertido, 2)
-            suma_total_debug += total_usd
+
+            sector = row.get('Sector', '')
+            tipo_ingreso = row.get('Tipo de Ingreso', row.get('Tipo de Operación', ''))
 
             registros.append({
                 "fecha": fecha.strftime('%Y-%m-%d'),
                 "mes": int(fecha.month),
                 "anio": int(fecha.year),
-                "area_id": mapear_area(str(row.get('Sector', 'com'))),
+                "area_id": mapear_area(sector, tipo_ingreso),
                 "monto_usd": total_usd,
-                "concepto": str(row.get('Tipo de Operación', 'Ingreso')) if not pd.isna(row.get('Tipo de Operación')) else 'Ingreso'
+                "concepto": str(tipo_ingreso) if not pd.isna(tipo_ingreso) else 'Ingreso'
             })
         except Exception:
             continue
 
-    print(f"📊 DEBUG CORREGIDO -> Filas: {len(registros)} | Suma final: ${suma_total_debug:,.2f} USD")
-
     if registros:
         supabase.table("eerr_ingresos").delete().neq("id", 0).execute()
         supabase.table("eerr_ingresos").insert(registros).execute()
-        print("✅ Ingresos subidos correctamente a Supabase.")
+        print("✅ Ingresos cargados correctamente.")
 
 def cargar_comisiones():
     if not os.path.exists("Comisiones.xlsx"): return
@@ -89,18 +92,16 @@ def cargar_comisiones():
             cotiz = float_val(row.get('Cotización', row.get('Cotizacion')))
             moneda = str(row.get('Moneda', '')).lower()
 
-            if 'u$s' in moneda or 'dolar' in moneda or 'usd' in moneda:
-                monto_usd = m_com
-            elif m_com > 0 and cotiz > 0:
-                monto_usd = round(m_com / cotiz, 2)
-            else:
-                monto_usd = m_com
+            monto_usd = m_com if ('u$s' in moneda or 'dolar' in moneda or 'usd' in moneda) else (round(m_com / cotiz, 2) if cotiz > 0 else m_com)
+
+            sector = row.get('Sector', '')
+            tipo = row.get('Tipo', row.get('Categoría Contable', ''))
 
             registros.append({
                 "fecha": fecha.strftime('%Y-%m-%d'),
                 "mes": int(fecha.month),
                 "anio": int(fecha.year),
-                "area_id": mapear_area(str(row.get('Sector', 'com'))),
+                "area_id": mapear_area(sector, tipo),
                 "monto_usd": monto_usd,
                 "concepto": 'Comisión'
             })
@@ -136,7 +137,7 @@ def cargar_gastos():
                 "concepto_analitico": str(row.get('Nombre', '')),
                 "monto_real_usd": monto_usd,
                 "monto_presupuestado_usd": 0.0,
-                "area_id": mapear_area(str(row.get('Sector', 'com')))
+                "area_id": mapear_area(row.get('Sector', ''))
             })
         except: continue
 
