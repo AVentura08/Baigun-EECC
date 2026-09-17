@@ -3,12 +3,11 @@ import glob
 import pandas as pd
 from supabase import create_client
 
-# URL fija directa para evitar fallas de lectura en GitHub Secrets
-SUPABASE_URL = "https://xvuyzjwnlxbyavbvmzct.supabase.co"
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://xvuyzjwnlxbvavbvmzct.supabase.co").strip()
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY").strip()
 
 if not SUPABASE_KEY:
-    raise ValueError("❌ Error: No se encontró la variable SUPABASE_KEY en los Secrets de GitHub.")
+    raise ValueError("❌ Error: No se encontró SUPABASE_KEY.")
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 MAPEO_AREAS = {
