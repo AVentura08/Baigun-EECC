@@ -11,7 +11,6 @@
 </head>
 <body class="bg-[#0b0f19] text-slate-100 min-h-screen font-sans">
 
-    <!-- Header -->
     <header class="border-b border-slate-800/80 bg-[#0d1322] px-8 py-5 flex justify-between items-center">
         <div>
             <h1 class="text-2xl font-serif text-white tracking-wide">Estado de Resultados</h1>
@@ -29,12 +28,31 @@
 
     <main class="max-w-7xl mx-auto px-6 py-8 space-y-6">
 
-        <!-- Selector de Año -->
-        <div class="flex items-center gap-3 bg-[#111827] p-3 rounded-xl border border-slate-800 w-fit">
-            <label class="text-xs text-slate-400 font-medium">Período:</label>
-            <select id="filtroAnio" onchange="aplicarFiltros()" class="bg-slate-900 border border-slate-700 text-xs rounded-lg px-3 py-1.5 text-white focus:outline-none focus:border-indigo-500">
-                <option value="todos">Acumulado Total</option>
-            </select>
+        <!-- Selector de Año y Barra Horizontal de Meses -->
+        <div class="flex flex-wrap items-center justify-between gap-4 bg-[#111827] p-3 rounded-xl border border-slate-800">
+            <div class="flex items-center gap-3">
+                <label class="text-xs text-slate-400 font-medium">Año:</label>
+                <select id="filtroAnio" onchange="aplicarFiltros()" class="bg-slate-900 border border-slate-700 text-xs rounded-lg px-3 py-1.5 text-white focus:outline-none focus:border-indigo-500">
+                    <option value="todos">Todos los años</option>
+                </select>
+            </div>
+
+            <!-- Eje Horizontal de Meses -->
+            <div class="flex items-center gap-1 bg-slate-900/80 p-1 rounded-lg border border-slate-800 overflow-x-auto" id="barraMeses">
+                <button onclick="seleccionarMes('todos')" data-mes="todos" class="btn-mes px-3 py-1 text-xs font-medium rounded-md bg-indigo-600 text-white transition">Acumulado</button>
+                <button onclick="seleccionarMes(1)" data-mes="1" class="btn-mes px-3 py-1 text-xs font-medium rounded-md text-slate-400 hover:text-white transition">Ene</button>
+                <button onclick="seleccionarMes(2)" data-mes="2" class="btn-mes px-3 py-1 text-xs font-medium rounded-md text-slate-400 hover:text-white transition">Feb</button>
+                <button onclick="seleccionarMes(3)" data-mes="3" class="btn-mes px-3 py-1 text-xs font-medium rounded-md text-slate-400 hover:text-white transition">Mar</button>
+                <button onclick="seleccionarMes(4)" data-mes="4" class="btn-mes px-3 py-1 text-xs font-medium rounded-md text-slate-400 hover:text-white transition">Abr</button>
+                <button onclick="seleccionarMes(5)" data-mes="5" class="btn-mes px-3 py-1 text-xs font-medium rounded-md text-slate-400 hover:text-white transition">May</button>
+                <button onclick="seleccionarMes(6)" data-mes="6" class="btn-mes px-3 py-1 text-xs font-medium rounded-md text-slate-400 hover:text-white transition">Jun</button>
+                <button onclick="seleccionarMes(7)" data-mes="7" class="btn-mes px-3 py-1 text-xs font-medium rounded-md text-slate-400 hover:text-white transition">Jul</button>
+                <button onclick="seleccionarMes(8)" data-mes="8" class="btn-mes px-3 py-1 text-xs font-medium rounded-md text-slate-400 hover:text-white transition">Ago</button>
+                <button onclick="seleccionarMes(9)" data-mes="9" class="btn-mes px-3 py-1 text-xs font-medium rounded-md text-slate-400 hover:text-white transition">Sep</button>
+                <button onclick="seleccionarMes(10)" data-mes="10" class="btn-mes px-3 py-1 text-xs font-medium rounded-md text-slate-400 hover:text-white transition">Oct</button>
+                <button onclick="seleccionarMes(11)" data-mes="11" class="btn-mes px-3 py-1 text-xs font-medium rounded-md text-slate-400 hover:text-white transition">Nov</button>
+                <button onclick="seleccionarMes(12)" data-mes="12" class="btn-mes px-3 py-1 text-xs font-medium rounded-md text-slate-400 hover:text-white transition">Dic</button>
+            </div>
         </div>
 
         <!-- Tarjetas KPI Principales -->
@@ -63,7 +81,7 @@
             </div>
         </section>
 
-        <!-- Tira de Fórmula Matematica -->
+        <!-- Tira de Fórmula Matemática -->
         <section class="bg-[#111827] border border-slate-800/80 rounded-xl p-4 flex flex-wrap items-center justify-between text-xs font-mono text-slate-300 px-8">
             <div class="text-center"><span class="text-[10px] text-slate-500 block font-sans">INGRESOS</span><span id="fIng" class="font-bold text-sm text-white">$0</span></div>
             <span class="text-slate-600 font-sans text-lg">-</span>
@@ -137,6 +155,7 @@
         const dbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
         let rawIngresos = [], rawComisiones = [], rawGastos = [];
+        let mesSeleccionado = 'todos';
 
         async function cargarDatos() {
             document.getElementById('statusTag').innerText = "Cargando...";
@@ -162,8 +181,20 @@
         function poblarAnios() {
             const anios = new Set([...rawIngresos.map(d => d.anio), ...rawComisiones.map(d => d.anio), ...rawGastos.map(d => d.anio)]);
             const select = document.getElementById('filtroAnio');
-            select.innerHTML = '<option value="todos">Acumulado Total</option>';
+            select.innerHTML = '<option value="todos">Todos los años</option>';
             Array.from(anios).sort().reverse().forEach(a => { if(a) select.innerHTML += `<option value="${a}">${a}</option>`; });
+        }
+
+        function seleccionarMes(mes) {
+            mesSeleccionado = mes;
+            document.querySelectorAll('.btn-mes').forEach(btn => {
+                if (String(btn.dataset.mes) === String(mes)) {
+                    btn.className = "btn-mes px-3 py-1 text-xs font-medium rounded-md bg-indigo-600 text-white transition";
+                } else {
+                    btn.className = "btn-mes px-3 py-1 text-xs font-medium rounded-md text-slate-400 hover:text-white transition";
+                }
+            });
+            aplicarFiltros();
         }
 
         function fmt(num) {
@@ -172,13 +203,16 @@
 
         function aplicarFiltros() {
             const anioSel = document.getElementById('filtroAnio').value;
-            const filtrar = (list) => list.filter(d => (anioSel === 'todos' || String(d.anio) === String(anioSel)));
+            
+            const filtrar = (list) => list.filter(d => 
+                (anioSel === 'todos' || String(d.anio) === String(anioSel)) &&
+                (mesSeleccionado === 'todos' || Number(d.mes) === Number(mesSeleccionado))
+            );
 
             const fIng = filtrar(rawIngresos);
             const fCom = filtrar(rawComisiones);
             const fGas = filtrar(rawGastos);
 
-            // Totales generales
             const ingTot = fIng.reduce((a, r) => a + Number(r.monto_usd || 0), 0);
             const comTot = fCom.reduce((a, r) => a + Number(r.monto_usd || 0), 0);
             const marTot = ingTot - comTot;
@@ -189,7 +223,6 @@
             const resOp = marTot - opexTot;
             const resNet = resOp - capexTot;
 
-            // Render KPIs
             document.getElementById('kpiIngresos').innerText = fmt(ingTot);
             document.getElementById('kpiComisiones').innerText = fmt(comTot);
             document.getElementById('kpiMargenSub').innerText = `Margen contrib. ${fmt(marTot)}`;
@@ -198,7 +231,6 @@
             document.getElementById('kpiCapexSub').innerText = `CAPEX ${fmt(capexTot)}`;
             document.getElementById('kpiResNeto').innerText = fmt(resNet);
 
-            // Render Tira de Formula
             document.getElementById('fIng').innerText = fmt(ingTot);
             document.getElementById('fCom').innerText = fmt(comTot);
             document.getElementById('fMarg').innerText = fmt(marTot);
@@ -207,7 +239,6 @@
             document.getElementById('fCap').innerText = fmt(capexTot);
             document.getElementById('fNet').innerText = fmt(resNet);
 
-            // Render Matriz por Area
             const areas = ['com', 'emp', 'usa', 'ter', 'esp'];
             
             areas.forEach(area => {
@@ -225,7 +256,7 @@
             document.getElementById('m_mar_tot').innerText = fmt(marTot);
         }
 
-        window.onload = cargar_datos = cargarDatos;
+        window.onload = cargarDatos;
     </script>
 </body>
 </html>
