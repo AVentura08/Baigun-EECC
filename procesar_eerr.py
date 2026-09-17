@@ -21,7 +21,7 @@ def mapear_area(sector_str, tipo_str=""):
         return 'usa'
     
     if 'com' in sec: return 'com'
-    if 'emp' in sec: return 'emp'
+    if 'emp' in sec or 'emp' in tipo: return 'emp'
     if 'ter' in sec: return 'ter'
     if 'esp' in sec: return 'esp'
     
@@ -39,17 +39,34 @@ def float_val(v):
     except:
         return 0.0
 
-def cargar_ingresos():
-    if not os.path.exists("Ingresos.xlsx"): return
-    print("📖 Leyendo: Ingresos.xlsx")
-    df = pd.read_excel("Ingresos.xlsx")
+def cargar_datos_completos():
+    if not os.path.exists("Ingresos.xlsx"):
+        print("❌ No se encontró Ingresos.xlsx")
+        return
 
-    registros = []
-    for idx, row in df.iterrows():
+    print("📖 Leyendo: Ingresos.xlsx")
+    df_ingresos = pd.read_excel("Ingresos.xlsx")
+
+    # Crear un diccionario indexado por el ID '#' para buscar el 'Tipo de Ingreso' instantáneamente
+    mapa_ingresos_tipo = {}
+    registros_ingresos = []
+
+    for idx, row in df_ingresos.iterrows():
         try:
             fecha_val = row.get('Fecha')
             if pd.isna(fecha_val): continue
             fecha = pd.to_datetime(fecha_val)
+
+            id_operacion = row.get('#')
+            sector = row.get('Sector', '')
+            tipo_ingreso = row.get('Tipo de Ingreso', row.get('Tipo de Operación', ''))
+
+            # Guardar en el mapa de cruce
+            if not pd.isna(id_operacion):
+                mapa_ingresos_tipo[str(id_operacion).strip()] = {
+                    "sector": sector,
+                    "tipo": tipo_ingreso
+                }
 
             monto_pesos = float_val(row.get('Monto'))
             monto_dolares = float_val(row.get('Monto.1'))
@@ -58,10 +75,7 @@ def cargar_ingresos():
             monto_ars_convertido = (monto_pesos / cotizacion) if (monto_pesos > 0 and cotizacion > 0) else 0.0
             total_usd = round(monto_dolares + monto_ars_convertido, 2)
 
-            sector = row.get('Sector', '')
-            tipo_ingreso = row.get('Tipo de Ingreso', row.get('Tipo de Operación', ''))
-
-            registros.append({
+            registros_ingresos.append({
                 "fecha": fecha.strftime('%Y-%m-%d'),
                 "mes": int(fecha.month),
                 "anio": int(fecha.year),
@@ -72,80 +86,92 @@ def cargar_ingresos():
         except Exception:
             continue
 
-    if registros:
+    if registros_ingresos:
         supabase.table("eerr_ingresos").delete().neq("id", 0).execute()
-        supabase.table("eerr_ingresos").insert(registros).execute()
-        print("✅ Ingresos cargados correctamente.")
+        supabase.table("eerr_ingresos").insert(registros_ingresos).execute()
+        print(f"✅ Ingresos procesados: {len(registros_ingresos)} filas.")
 
-def cargar_comisiones():
-    if not os.path.exists("Comisiones.xlsx"): return
-    df = pd.read_excel("Comisiones.xlsx")
+    # --- PROCESAR COMISIONES CON CRUCE POR ID (#) ---
+    if os.path.exists("Comisiones.xlsx"):
+        print("📖 Leyendo: Comisiones.xlsx")
+        df_comisiones = pd.read_excel("Comisiones.xlsx")
 
-    registros = []
-    for _, row in df.iterrows():
-        try:
-            fecha_val = row.get('Fecha')
-            if pd.isna(fecha_val): continue
-            fecha = pd.to_datetime(fecha_val)
+        registros_comisiones = []
+        for _, row in df_comisiones.iterrows():
+            try:
+                fecha_val = row.get('Fecha')
+                if pd.isna(fecha_val): continue
+                fecha = pd.to_datetime(fecha_val)
 
-            m_com = float_val(row.get('Monto de Comision', row.get('Monto de Comisión')))
-            cotiz = float_val(row.get('Cotización', row.get('Cotizacion')))
-            moneda = str(row.get('Moneda', '')).lower()
+                # Intentar cruzar ID (# o Nº Ingreso) con la tabla de Ingresos
+                id_comision = row.get('#', row.get('Ingreso', row.get('Nº Ingreso')))
+                id_str = str(id_comision).strip() if not pd.isna(id_comision) else ""
 
-            monto_usd = m_com if ('u$s' in moneda or 'dolar' in moneda or 'usd' in moneda) else (round(m_com / cotiz, 2) if cotiz > 0 else m_com)
+                sector = row.get('Sector', '')
+                tipo = row.get('Tipo', row.get('Categoría Contable', ''))
 
-            sector = row.get('Sector', '')
-            tipo = row.get('Tipo', row.get('Categoría Contable', ''))
+                # Si encontramos el ID en Ingresos, usamos el Tipo de Ingreso real
+                if id_str in mapa_ingresos_tipo:
+                    info_ingreso = mapa_ingresos_tipo[id_str]
+                    sector = info_ingreso["sector"]
+                    tipo = info_ingreso["tipo"]
 
-            registros.append({
-                "fecha": fecha.strftime('%Y-%m-%d'),
-                "mes": int(fecha.month),
-                "anio": int(fecha.year),
-                "area_id": mapear_area(sector, tipo),
-                "monto_usd": monto_usd,
-                "concepto": 'Comisión'
-            })
-        except: continue
+                m_com = float_val(row.get('Monto de Comision', row.get('Monto de Comisión')))
+                cotiz = float_val(row.get('Cotización', row.get('Cotizacion')))
+                moneda = str(row.get('Moneda', '')).lower()
 
-    if registros:
-        supabase.table("eerr_comisiones").delete().neq("id", 0).execute()
-        supabase.table("eerr_comisiones").insert(registros).execute()
+                monto_usd = m_com if ('u$s' in moneda or 'dolar' in moneda or 'usd' in moneda) else (round(m_com / cotiz, 2) if cotiz > 0 else m_com)
 
-def cargar_gastos():
-    if not os.path.exists("Gastos.xlsx"): return
-    df = pd.read_excel("Gastos.xlsx")
+                registros_comisiones.append({
+                    "fecha": fecha.strftime('%Y-%m-%d'),
+                    "mes": int(fecha.month),
+                    "anio": int(fecha.year),
+                    "area_id": mapear_area(sector, tipo),
+                    "monto_usd": monto_usd,
+                    "concepto": 'Comisión'
+                })
+            except Exception: continue
 
-    registros = []
-    for _, row in df.iterrows():
-        try:
-            fecha_val = row.get('Fecha')
-            if pd.isna(fecha_val): continue
-            fecha = pd.to_datetime(fecha_val)
+        if registros_comisiones:
+            supabase.table("eerr_comisiones").delete().neq("id", 0).execute()
+            supabase.table("eerr_comisiones").insert(registros_comisiones).execute()
+            print(f"✅ Comisiones procesadas con cruce por ID #: {len(registros_comisiones)} filas.")
 
-            monto = float_val(row.get('Monto'))
-            cotiz = float_val(row.get('Cotización', row.get('Cotizacion')))
-            moneda = str(row.get('Moneda', '')).lower()
+    # --- PROCESAR GASTOS ---
+    if os.path.exists("Gastos.xlsx"):
+        print("📖 Leyendo: Gastos.xlsx")
+        df_gastos = pd.read_excel("Gastos.xlsx")
 
-            monto_usd = round(monto / cotiz, 2) if ('pes' in moneda or '$' in moneda) and cotiz > 0 else monto
+        registros_gastos = []
+        for _, row in df_gastos.iterrows():
+            try:
+                fecha_val = row.get('Fecha')
+                if pd.isna(fecha_val): continue
+                fecha = pd.to_datetime(fecha_val)
 
-            registros.append({
-                "fecha": fecha.strftime('%Y-%m-%d'),
-                "mes": int(fecha.month),
-                "anio": int(fecha.year),
-                "tipo_rubro": 'opex',
-                "driver": str(row.get('Categoría Contable', '')),
-                "concepto_analitico": str(row.get('Nombre', '')),
-                "monto_real_usd": monto_usd,
-                "monto_presupuestado_usd": 0.0,
-                "area_id": mapear_area(row.get('Sector', ''))
-            })
-        except: continue
+                monto = float_val(row.get('Monto'))
+                cotiz = float_val(row.get('Cotización', row.get('Cotizacion')))
+                moneda = str(row.get('Moneda', '')).lower()
 
-    if registros:
-        supabase.table("eerr_gastos").delete().neq("id", 0).execute()
-        supabase.table("eerr_gastos").insert(registros).execute()
+                monto_usd = round(monto / cotiz, 2) if ('pes' in moneda or '$' in moneda) and cotiz > 0 else monto
+
+                registros_gastos.append({
+                    "fecha": fecha.strftime('%Y-%m-%d'),
+                    "mes": int(fecha.month),
+                    "anio": int(fecha.year),
+                    "tipo_rubro": 'opex',
+                    "driver": str(row.get('Categoría Contable', '')),
+                    "concepto_analitico": str(row.get('Nombre', '')),
+                    "monto_real_usd": monto_usd,
+                    "monto_presupuestado_usd": 0.0,
+                    "area_id": mapear_area(row.get('Sector', ''))
+                })
+            except Exception: continue
+
+        if registros_gastos:
+            supabase.table("eerr_gastos").delete().neq("id", 0).execute()
+            supabase.table("eerr_gastos").insert(registros_gastos).execute()
+            print(f"✅ Gastos procesados: {len(registros_gastos)} filas.")
 
 if __name__ == "__main__":
-    cargar_ingresos()
-    cargar_comisiones()
-    cargar_gastos()
+    cargar_datos_completos()
