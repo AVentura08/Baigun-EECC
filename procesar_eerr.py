@@ -21,31 +21,25 @@ def mapear_area(area_str):
     if 'esp' in val: return 'esp'
     return 'com'
 
-def extraer_monto_usd(row):
-    """ Busca columnas en USD o convierte si encuentra pesos y cotizacion """
-    # 1. Buscar columna explicita en USD
-    for col in ['monto_usd', 'monto usd', 'total usd', 'importe usd', 'usd']:
-        if col in row and not pd.isna(row[col]) and float(row[col]) > 0:
-            return float(row[col])
-            
-    # 2. Buscar monto general
-    monto = 0.0
-    for col in ['monto', 'total', 'importe', 'monto_real', 'monto_real_usd']:
-        if col in row and not pd.isna(row[col]):
-            monto = float(row[col])
-            break
+def calcular_monto_usd_exacto(row):
+    """ Mapeo preciso leyendo las columnas reales del Excel """
+    monto2 = row.get('monto2', 0)
+    dolares = row.get('dolares', 0)
+    monto = row.get('monto', 0)
+    cotiz = row.get('cotización', row.get('cotizacion', 1))
 
-    # 3. Buscar tipo de cambio / cotizacion si el monto parece en pesos
-    tc = 1.0
-    for col in ['tc', 'cotizacion', 'tipo_de_cambio', 'tipo de cambio', 'cambio']:
-        if col in row and not pd.isna(row[col]) and float(row[col]) > 0:
-            tc = float(row[col])
-            break
+    # Si hay valor en 'Monto2' o 'Dolares', ese es el monto en USD
+    if not pd.isna(monto2) and float(monto2) > 0:
+        return float(monto2)
+    if not pd.isna(dolares) and float(dolares) > 0:
+        return float(dolares)
 
-    if tc > 1.0:
-        return round(monto / tc, 2)
-    
-    return round(monto, 2)
+    # Si el valor esta en pesos, divide por la Cotizacion de la fila
+    if not pd.isna(monto) and float(monto) > 0:
+        tc = float(cotiz) if (not pd.isna(cotiz) and float(cotiz) > 0) else 1.0
+        return round(float(monto) / tc, 2)
+
+    return 0.0
 
 def cargar_ingresos():
     archivo = "Ingresos.xlsx"
@@ -59,15 +53,18 @@ def cargar_ingresos():
     for _, row in df.iterrows():
         try:
             fecha = pd.to_datetime(row.get('fecha'))
-            monto_usd = extraer_monto_usd(row)
+            if pd.isna(fecha): continue
+
+            monto_usd = calcular_monto_usd_exacto(row)
+            sector = str(row.get('sector', row.get('area', 'com')))
 
             registros.append({
                 "fecha": fecha.strftime('%Y-%m-%d'),
                 "mes": int(fecha.month),
                 "anio": int(fecha.year),
-                "area_id": mapear_area(str(row.get('area', 'com'))),
+                "area_id": mapear_area(sector),
                 "monto_usd": monto_usd,
-                "concepto": str(row.get('concepto', '')) if not pd.isna(row.get('concepto')) else ''
+                "concepto": str(row.get('tipo de operación', row.get('concepto', ''))) if not pd.isna(row.get('tipo de operación')) else ''
             })
         except Exception:
             continue
@@ -89,15 +86,18 @@ def cargar_comisiones():
     for _, row in df.iterrows():
         try:
             fecha = pd.to_datetime(row.get('fecha'))
-            monto_usd = extraer_monto_usd(row)
+            if pd.isna(fecha): continue
+
+            monto_usd = calcular_monto_usd_exacto(row)
+            sector = str(row.get('sector', row.get('area', 'com')))
 
             registros.append({
                 "fecha": fecha.strftime('%Y-%m-%d'),
                 "mes": int(fecha.month),
                 "anio": int(fecha.year),
-                "area_id": mapear_area(str(row.get('area', 'com'))),
+                "area_id": mapear_area(sector),
                 "monto_usd": monto_usd,
-                "concepto": str(row.get('concepto', '')) if not pd.isna(row.get('concepto')) else ''
+                "concepto": str(row.get('tipo de operación', row.get('concepto', ''))) if not pd.isna(row.get('tipo de operación')) else ''
             })
         except Exception:
             continue
@@ -119,7 +119,10 @@ def cargar_gastos():
     for _, row in df.iterrows():
         try:
             fecha = pd.to_datetime(row.get('fecha'))
-            monto_usd = extraer_monto_usd(row)
+            if pd.isna(fecha): continue
+
+            monto_usd = calcular_monto_usd_exacto(row)
+            sector = str(row.get('sector', row.get('area', 'com')))
 
             tipo = str(row.get('tipo_rubro', 'opex')).lower().strip()
             if tipo not in ['opex', 'capex']: tipo = 'opex'
@@ -133,7 +136,7 @@ def cargar_gastos():
                 "concepto_analitico": str(row.get('concepto_analitico', '')) if not pd.isna(row.get('concepto_analitico')) else '',
                 "monto_real_usd": monto_usd,
                 "monto_presupuestado_usd": 0.0,
-                "area_id": mapear_area(str(row.get('area', 'com')))
+                "area_id": mapear_area(sector)
             })
         except Exception:
             continue
@@ -149,3 +152,4 @@ if __name__ == "__main__":
     cargar_comisiones()
     cargar_gastos()
     print("🎉 Proceso finalizado.")
+    
