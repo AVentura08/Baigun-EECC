@@ -21,21 +21,13 @@ def mapear_area(area_str):
     return 'com'
 
 def float_val(v):
-    """ Convierte correctamente números en formato latino (17.550,00 -> 17550.00) """
     try:
         if pd.isna(v): return 0.0
         if isinstance(v, (int, float)): return float(v)
-        
         s = str(v).strip().replace('$', '').replace(' ', '')
-        if not s or s == '#¡VALOR!' or s == 'nan': return 0.0
-
-        # Si tiene punto y coma (ej: 17.550,00)
-        if '.' in s and ',' in s:
-            s = s.replace('.', '').replace(',', '.')
-        # Si solo tiene coma (ej: 17550,00)
-        elif ',' in s:
-            s = s.replace(',', '.')
-            
+        if not s or s in ['#¡VALOR!', 'nan', 'none', '-']: return 0.0
+        if '.' in s and ',' in s: s = s.replace('.', '').replace(',', '.')
+        elif ',' in s: s = s.replace(',', '.')
         return float(s)
     except:
         return 0.0
@@ -45,69 +37,98 @@ def cargar_ingresos():
 
     print("📖 Leyendo: Ingresos.xlsx")
     df = pd.read_excel("Ingresos.xlsx")
-    df.columns = [str(c).strip().lower() for c in df.columns]
+    
+    # Imprimir columnas reales detectadas
+    print(f"📋 COLUMNAS DETECTADAS EN EXCEL: {list(df.columns)}")
+    
+    # Limpieza estricta de nombres de columnas
+    df.columns = [str(c).strip().lower().replace(' ', '') for c in df.columns]
 
     registros = []
     suma_total_debug = 0.0
 
     for idx, row in df.iterrows():
         try:
-            fecha_val = row.get('fecha')
-            if pd.isna(fecha_val): continue
+            # Buscar cualquier columna que contenga fecha
+            fecha_val = None
+            for col in row.index:
+                if 'fecha' in col:
+                    fecha_val = row[col]
+                    break
 
+            if pd.isna(fecha_val): continue
             fecha = pd.to_datetime(fecha_val)
 
-            monto2_usd = float_val(row.get('monto2'))
-            monto_ars = float_val(row.get('monto'))
-            cotiz = float_val(row.get('cotización', row.get('cotizacion')))
+            # Extraer valores buscando coincidencias parciales en los nombres de columna
+            monto2_usd = 0.0
+            monto_ars = 0.0
+            cotiz = 1.0
 
-            # Si hay monto en pesos y cotizacion, convierte a USD
+            for col in row.index:
+                if col in ['monto2', 'monto_2', 'totalusd', 'dolares']:
+                    val = float_val(row[col])
+                    if val > 0: monto2_usd = val
+                elif col in ['monto', 'pesos', 'montoars']:
+                    val = float_val(row[col])
+                    if val > 0: monto_ars = val
+                elif col in ['cotización', 'cotizacion', 'tc', 'tipodecambio']:
+                    val = float_val(row[col])
+                    if val > 0: cotiz = val
+
             monto_ars_convertido = (monto_ars / cotiz) if (monto_ars > 0 and cotiz > 0) else 0.0
-            
-            # Suma de la fila
             total_usd = round(monto2_usd + monto_ars_convertido, 2)
             suma_total_debug += total_usd
+
+            # Detectar sector / area
+            sector_val = 'com'
+            for col in row.index:
+                if 'sector' in col or 'area' in col:
+                    sector_val = str(row[col])
+                    break
 
             registros.append({
                 "fecha": fecha.strftime('%Y-%m-%d'),
                 "mes": int(fecha.month),
                 "anio": int(fecha.year),
-                "area_id": mapear_area(str(row.get('sector', 'com'))),
+                "area_id": mapear_area(sector_val),
                 "monto_usd": total_usd,
-                "concepto": str(row.get('tipo de operación', 'Ingreso')) if not pd.isna(row.get('tipo de operación')) else 'Ingreso'
+                "concepto": "Ingreso"
             })
         except Exception as e:
             continue
 
-    print(f"📊 DEBUG INGRESOS -> Filas procesadas: {len(registros)} | Suma calculada: ${suma_total_debug:,.2f} USD")
+    print(f"📊 DEBUG REVISADO -> Filas: {len(registros)} | Suma calculada: ${suma_total_debug:,.2f} USD")
 
     if registros:
         supabase.table("eerr_ingresos").delete().neq("id", 0).execute()
         supabase.table("eerr_ingresos").insert(registros).execute()
-        print("✅ Ingresos subidos correctamente a Supabase.")
+        print("✅ Ingresos cargados a Supabase.")
 
 def cargar_comisiones():
     if not os.path.exists("Comisiones.xlsx"): return
     df = pd.read_excel("Comisiones.xlsx")
-    df.columns = [str(c).strip().lower() for c in df.columns]
+    df.columns = [str(c).strip().lower().replace(' ', '') for c in df.columns]
 
     registros = []
     for _, row in df.iterrows():
         try:
-            fecha = pd.to_datetime(row.get('fecha'))
-            if pd.isna(fecha): continue
+            fecha_val = None
+            for col in row.index:
+                if 'fecha' in col:
+                    fecha_val = row[col]
+                    break
+            if pd.isna(fecha_val): continue
+            fecha = pd.to_datetime(fecha_val)
 
-            m_com = float_val(row.get('monto de comision'))
-            tot_dls = float_val(row.get('ingreso monto total dolares'))
-            cotiz = float_val(row.get('cotización', row.get('cotizacion')))
-            moneda = str(row.get('moneda', '')).lower()
+            m_com = 0.0
+            cotiz = 1.0
+            for col in row.index:
+                if 'montodecomision' in col or 'comision' in col:
+                    m_com = float_val(row[col])
+                elif 'cotiz' in col:
+                    cotiz = float_val(row[col])
 
-            if 'u$s' in moneda or 'dolar' in moneda or 'usd' in moneda:
-                monto_usd = m_com if m_com > 0 else tot_dls
-            elif m_com > 0 and cotiz > 0:
-                monto_usd = round(m_com / cotiz, 2)
-            else:
-                monto_usd = m_com
+            monto_usd = round(m_com / cotiz, 2) if (m_com > 0 and cotiz > 0) else m_com
 
             registros.append({
                 "fecha": fecha.strftime('%Y-%m-%d'),
@@ -115,7 +136,7 @@ def cargar_comisiones():
                 "anio": int(fecha.year),
                 "area_id": mapear_area(str(row.get('sector', 'com'))),
                 "monto_usd": monto_usd,
-                "concepto": str(row.get('ingreso', 'Comisión')) if not pd.isna(row.get('ingreso')) else 'Comisión'
+                "concepto": 'Comisión'
             })
         except: continue
 
@@ -126,32 +147,35 @@ def cargar_comisiones():
 def cargar_gastos():
     if not os.path.exists("Gastos.xlsx"): return
     df = pd.read_excel("Gastos.xlsx")
-    df.columns = [str(c).strip().lower() for c in df.columns]
+    df.columns = [str(c).strip().lower().replace(' ', '') for c in df.columns]
 
     registros = []
     for _, row in df.iterrows():
         try:
-            fecha = pd.to_datetime(row.get('fecha'))
-            if pd.isna(fecha): continue
+            fecha_val = None
+            for col in row.index:
+                if 'fecha' in col:
+                    fecha_val = row[col]
+                    break
+            if pd.isna(fecha_val): continue
+            fecha = pd.to_datetime(fecha_val)
 
-            monto = float_val(row.get('monto'))
-            cotiz = float_val(row.get('cotización', row.get('cotizacion')))
+            monto = 0.0
+            cotiz = 1.0
+            for col in row.index:
+                if 'monto' in col: monto = float_val(row[col])
+                elif 'cotiz' in col: cotiz = float_val(row[col])
+
             moneda = str(row.get('moneda', '')).lower()
-
-            if 'pes' in moneda or '$' in moneda:
-                monto_usd = round(monto / cotiz, 2) if cotiz > 0 else monto
-            else:
-                monto_usd = monto
-
-            t_gasto = str(row.get('tipo de gasto', 'opex')).lower()
+            monto_usd = round(monto / cotiz, 2) if ('pes' in moneda or '$' in moneda) and cotiz > 0 else monto
 
             registros.append({
                 "fecha": fecha.strftime('%Y-%m-%d'),
                 "mes": int(fecha.month),
                 "anio": int(fecha.year),
-                "tipo_rubro": 'capex' if 'capex' in t_gasto else 'opex',
-                "driver": str(row.get('categoría contable', '')) if not pd.isna(row.get('categoría contable')) else '',
-                "concepto_analitico": str(row.get('nombre', '')) if not pd.isna(row.get('nombre')) else '',
+                "tipo_rubro": 'opex',
+                "driver": str(row.get('categoríacontable', '')),
+                "concepto_analitico": str(row.get('nombre', '')),
                 "monto_real_usd": monto_usd,
                 "monto_presupuestado_usd": 0.0,
                 "area_id": mapear_area(str(row.get('sector', 'com')))
