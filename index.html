@@ -96,9 +96,8 @@
 
     <script>
         const SUPABASE_URL = "https://xvuyzjwnixbvavbvmzct.supabase.co";
-        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh2dXl6anduaXhidmF2YnZtemN0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDIzMDU0ODcsImV4cCI6MjA1Nzg4MTQ4N30.K3f-2Pms0iU_DClf31f9Z_Rk_qgS6O-oP663iO_648A";
+        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh2dXl6anduaXhidmF2YnZtemN0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY3MTIxNDUsImV4cCI6MjEwMjI4ODE0NX0.vUFy8IvWRyrn6t0360WHKRurnIxaykwdDcOePBTOjnU";
         
-        // Inicializar cliente con un nombre único para evitar colisiones
         const dbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
         let rawIngresos = [], rawComisiones = [], rawGastos = [];
