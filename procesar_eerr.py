@@ -38,10 +38,18 @@ def cargar_ingresos():
     print("📖 Leyendo: Ingresos.xlsx")
     df = pd.read_excel("Ingresos.xlsx")
     
-    # Imprimir columnas reales detectadas
-    print(f"📋 COLUMNAS DETECTADAS EN EXCEL: {list(df.columns)}")
+    print("\n--- INICIO INSPECCIÓN DE DATOS ---")
+    print(f"Total de filas leídas: {len(df)}")
+    print("Columnas exactas:", list(df.columns))
     
-    # Limpieza estricta de nombres de columnas
+    # Imprimir las primeras 3 filas completas para inspeccionar el contenido real
+    for i in range(min(3, len(df))):
+        print(f"\n[FILA {i+1}]:")
+        for col in df.columns:
+            print(f"  {col} = {df.iloc[i][col]} (Tipo: {type(df.iloc[i][col])})")
+    print("\n--- FIN INSPECCIÓN DE DATOS ---\n")
+
+    # Normalizar nombres de columnas
     df.columns = [str(c).strip().lower().replace(' ', '') for c in df.columns]
 
     registros = []
@@ -49,7 +57,6 @@ def cargar_ingresos():
 
     for idx, row in df.iterrows():
         try:
-            # Buscar cualquier columna que contenga fecha
             fecha_val = None
             for col in row.index:
                 if 'fecha' in col:
@@ -59,7 +66,6 @@ def cargar_ingresos():
             if pd.isna(fecha_val): continue
             fecha = pd.to_datetime(fecha_val)
 
-            # Extraer valores buscando coincidencias parciales en los nombres de columna
             monto2_usd = 0.0
             monto_ars = 0.0
             cotiz = 1.0
@@ -79,7 +85,6 @@ def cargar_ingresos():
             total_usd = round(monto2_usd + monto_ars_convertido, 2)
             suma_total_debug += total_usd
 
-            # Detectar sector / area
             sector_val = 'com'
             for col in row.index:
                 if 'sector' in col or 'area' in col:
@@ -94,15 +99,14 @@ def cargar_ingresos():
                 "monto_usd": total_usd,
                 "concepto": "Ingreso"
             })
-        except Exception as e:
+        except Exception:
             continue
 
-    print(f"📊 DEBUG REVISADO -> Filas: {len(registros)} | Suma calculada: ${suma_total_debug:,.2f} USD")
+    print(f"📊 DEBUG RESULTADO -> Filas procesadas: {len(registros)} | Suma: ${suma_total_debug:,.2f} USD")
 
     if registros:
         supabase.table("eerr_ingresos").delete().neq("id", 0).execute()
         supabase.table("eerr_ingresos").insert(registros).execute()
-        print("✅ Ingresos cargados a Supabase.")
 
 def cargar_comisiones():
     if not os.path.exists("Comisiones.xlsx"): return
