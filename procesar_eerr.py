@@ -23,7 +23,6 @@ def mapear_area(area_str):
 def float_val(v):
     try:
         if pd.isna(v): return 0.0
-        # Reemplazar formatos de moneda comunes si vienen como string
         if isinstance(v, str):
             v = v.replace('$', '').replace('.', '').replace(',', '.').strip()
         return float(v)
@@ -52,7 +51,6 @@ def cargar_ingresos():
 
             fecha = pd.to_datetime(fecha_val)
 
-            # Suma combinada exactas
             monto2_usd = float_val(row.get('monto2'))
             monto_ars = float_val(row.get('monto'))
             cotiz = float_val(row.get('cotización', row.get('cotizacion')))
