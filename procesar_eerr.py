@@ -11,7 +11,6 @@ if not SUPABASE_KEY:
     raise ValueError("❌ Error: No se encontró la variable SUPABASE_KEY en los Secrets de GitHub.")
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-
 MAPEO_AREAS = {
     'Comercial': 'com',
     'Residencial': 'usa',
