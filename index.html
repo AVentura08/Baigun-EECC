@@ -3,92 +3,129 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard EERR - Baigun</title>
+    <title>Estado de Resultados - Baigun Realty</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        body { font-family: 'Inter', sans-serif; }
-    </style>
+    <style> body { font-family: 'Inter', sans-serif; } </style>
 </head>
-<body class="bg-slate-900 text-slate-100 min-h-screen">
+<body class="bg-[#0b0f19] text-slate-100 min-h-screen font-sans">
 
-    <header class="border-b border-slate-800 bg-slate-950/50 backdrop-blur sticky top-0 z-50 px-6 py-4 flex justify-between items-center">
-        <div class="flex items-center space-x-3">
-            <div class="w-9 h-9 bg-indigo-600 rounded-lg flex items-center justify-center font-bold text-white text-lg shadow-lg shadow-indigo-500/30">B</div>
-            <div>
-                <h1 class="text-lg font-bold text-white tracking-tight">EERR Executive Dashboard</h1>
-                <p class="text-xs text-slate-400">Baigun Real Estate</p>
-            </div>
+    <!-- Header -->
+    <header class="border-b border-slate-800/80 bg-[#0d1322] px-8 py-5 flex justify-between items-center">
+        <div>
+            <h1 class="text-2xl font-serif text-white tracking-wide">Estado de Resultados</h1>
+            <p class="text-xs text-slate-400 mt-1">Baigun Realty • Vista Consolidada EERR</p>
         </div>
-        <div class="flex items-center gap-3">
-            <button onclick="cargarDatos()" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold rounded-md transition flex items-center gap-2">
-                🔄 Actualizar Datos
+        <div class="flex items-center gap-4">
+            <span id="statusTag" class="text-xs text-emerald-400 bg-emerald-950/60 border border-emerald-800 px-3 py-1 rounded-full flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Sincronizado
+            </span>
+            <button onclick="cargarDatos()" class="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs font-medium rounded-lg border border-slate-700 transition">
+                🔄 Recargar
             </button>
         </div>
     </header>
 
-    <main class="max-w-7xl mx-auto px-6 py-8 space-y-8">
+    <main class="max-w-7xl mx-auto px-6 py-8 space-y-6">
 
-        <section class="bg-slate-800/60 rounded-xl p-4 border border-slate-700/50 flex flex-wrap gap-4 items-center justify-between">
-            <div class="flex flex-wrap gap-4 items-center">
-                <div>
-                    <label class="block text-xs text-slate-400 mb-1">Año</label>
-                    <select id="filtroAnio" onchange="aplicarFiltros()" class="bg-slate-900 border border-slate-700 text-xs rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-indigo-500">
-                        <option value="todos">Todos los años</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-xs text-slate-400 mb-1">Área / Sector</label>
-                    <select id="filtroArea" onchange="aplicarFiltros()" class="bg-slate-900 border border-slate-700 text-xs rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-indigo-500">
-                        <option value="todas">Todas las áreas</option>
-                        <option value="com">Comercial</option>
-                        <option value="usa">Residencial (Usados)</option>
-                        <option value="emp">Emprendimientos</option>
-                        <option value="ter">Terrenos</option>
-                        <option value="esp">Especiales</option>
-                    </select>
-                </div>
-            </div>
-            <div id="statusTag" class="text-xs text-slate-400">Cargando datos...</div>
-        </section>
+        <!-- Selector de Año -->
+        <div class="flex items-center gap-3 bg-[#111827] p-3 rounded-xl border border-slate-800 w-fit">
+            <label class="text-xs text-slate-400 font-medium">Período:</label>
+            <select id="filtroAnio" onchange="aplicarFiltros()" class="bg-slate-900 border border-slate-700 text-xs rounded-lg px-3 py-1.5 text-white focus:outline-none focus:border-indigo-500">
+                <option value="todos">Acumulado Total</option>
+            </select>
+        </div>
 
-        <section class="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <div class="bg-slate-800/40 border border-slate-700/50 rounded-xl p-5">
-                <p class="text-xs text-slate-400 font-medium">Ingresos Totales</p>
-                <h3 id="kpiIngresos" class="text-2xl font-bold text-emerald-400 mt-2">$0 USD</h3>
-                <p class="text-[10px] text-slate-500 mt-1">Facturación general</p>
+        <!-- Tarjetas KPI Principales -->
+        <section class="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <div class="bg-[#111827] border border-slate-800/80 rounded-xl p-5">
+                <p class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Ingresos Brutos</p>
+                <h3 id="kpiIngresos" class="text-2xl font-bold text-white mt-2">$0</h3>
             </div>
-            <div class="bg-slate-800/40 border border-slate-700/50 rounded-xl p-5">
-                <p class="text-xs text-slate-400 font-medium">Comisiones Totales</p>
-                <h3 id="kpiComisiones" class="text-2xl font-bold text-cyan-400 mt-2">$0 USD</h3>
-                <p class="text-[10px] text-slate-500 mt-1">Ingreso neto por operaciones</p>
+            <div class="bg-[#111827] border border-slate-800/80 rounded-xl p-5">
+                <p class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Comisiones</p>
+                <h3 id="kpiComisiones" class="text-2xl font-bold text-white mt-2">$0</h3>
+                <p id="kpiMargenSub" class="text-[11px] text-slate-400 mt-1">Margen contrib. $0</p>
             </div>
-            <div class="bg-slate-800/40 border border-slate-700/50 rounded-xl p-5">
-                <p class="text-xs text-slate-400 font-medium">Gastos Operativos (OPEX)</p>
-                <h3 id="kpiGastos" class="text-2xl font-bold text-rose-400 mt-2">$0 USD</h3>
-                <p class="text-[10px] text-slate-500 mt-1">Egresos operativos</p>
+            <div class="bg-[#111827] border border-slate-800/80 rounded-xl p-5">
+                <p class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Gastos (OPEX)</p>
+                <h3 id="kpiGastos" class="text-2xl font-bold text-white mt-2">$0</h3>
             </div>
-            <div class="bg-slate-800/40 border border-slate-700/50 rounded-xl p-5">
-                <p class="text-xs text-slate-400 font-medium">Resultado Neto (EBITDA)</p>
-                <h3 id="kpiResultado" class="text-2xl font-bold text-white mt-2">$0 USD</h3>
-                <p class="text-[10px] text-slate-500 mt-1">Margen final proyectado</p>
+            <div class="bg-[#111827] border border-slate-800/80 rounded-xl p-5">
+                <p class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Resultado Operativo</p>
+                <h3 id="kpiResOp" class="text-2xl font-bold text-emerald-400 mt-2">$0</h3>
+                <p id="kpiCapexSub" class="text-[11px] text-slate-400 mt-1">CAPEX $0</p>
+            </div>
+            <div class="bg-[#111827] border border-slate-800/80 rounded-xl p-5">
+                <p class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Resultado Neto</p>
+                <h3 id="kpiResNeto" class="text-2xl font-bold text-emerald-400 mt-2">$0</h3>
             </div>
         </section>
 
-        <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div class="bg-slate-800/40 border border-slate-700/50 rounded-xl p-6">
-                <h4 class="text-sm font-semibold text-slate-200 mb-4">Evolución Mensual (USD)</h4>
-                <div class="h-64">
-                    <canvas id="chartEvolucion"></canvas>
-                </div>
-            </div>
-            <div class="bg-slate-800/40 border border-slate-700/50 rounded-xl p-6">
-                <h4 class="text-sm font-semibold text-slate-200 mb-4">Distribución por Área</h4>
-                <div class="h-64 flex items-center justify-center">
-                    <canvas id="chartAreas"></canvas>
-                </div>
+        <!-- Tira de Fórmula Matematica -->
+        <section class="bg-[#111827] border border-slate-800/80 rounded-xl p-4 flex flex-wrap items-center justify-between text-xs font-mono text-slate-300 px-8">
+            <div class="text-center"><span class="text-[10px] text-slate-500 block font-sans">INGRESOS</span><span id="fIng" class="font-bold text-sm text-white">$0</span></div>
+            <span class="text-slate-600 font-sans text-lg">-</span>
+            <div class="text-center"><span class="text-[10px] text-slate-500 block font-sans">COMISIONES</span><span id="fCom" class="font-bold text-sm text-white">$0</span></div>
+            <span class="text-slate-600 font-sans text-lg">=</span>
+            <div class="text-center"><span class="text-[10px] text-slate-500 block font-sans">MARGEN CONTRIB.</span><span id="fMarg" class="font-bold text-sm text-white">$0</span></div>
+            <span class="text-slate-600 font-sans text-lg">-</span>
+            <div class="text-center"><span class="text-[10px] text-slate-500 block font-sans">GASTOS</span><span id="fGas" class="font-bold text-sm text-white">$0</span></div>
+            <span class="text-slate-600 font-sans text-lg">=</span>
+            <div class="text-center"><span class="text-[10px] text-slate-500 block font-sans">RESULT. OPERATIVO</span><span id="fOp" class="font-bold text-sm text-emerald-400">$0</span></div>
+            <span class="text-slate-600 font-sans text-lg">-</span>
+            <div class="text-center"><span class="text-[10px] text-slate-500 block font-sans">CAPEX</span><span id="fCap" class="font-bold text-sm text-white">$0</span></div>
+            <span class="text-slate-600 font-sans text-lg">=</span>
+            <div class="text-center"><span class="text-[10px] text-slate-500 block font-sans">RESULT. NETO</span><span id="fNet" class="font-bold text-sm text-emerald-400">$0</span></div>
+        </section>
+
+        <!-- Matriz por Unidad de Negocio -->
+        <section class="bg-[#111827] border border-slate-800/80 rounded-xl p-6">
+            <h3 class="text-sm font-semibold text-slate-200 mb-6">Resultado por unidad de negocio (USD)</h3>
+            <div class="overflow-x-auto">
+                <table class="w-full text-right text-xs">
+                    <thead>
+                        <tr class="border-b border-slate-800 text-slate-400 text-[11px] uppercase tracking-wider">
+                            <th class="text-left py-3 font-semibold">Rubro</th>
+                            <th class="py-3 font-semibold px-4">Comercial</th>
+                            <th class="py-3 font-semibold px-4">Emprend.</th>
+                            <th class="py-3 font-semibold px-4">Usados+Alq</th>
+                            <th class="py-3 font-semibold px-4">Terrenos</th>
+                            <th class="py-3 font-semibold px-4">Especiales</th>
+                            <th class="py-3 font-bold text-white px-4 border-l border-slate-800">TOTAL</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-800/50 text-slate-300">
+                        <tr>
+                            <td class="text-left py-4 font-medium text-slate-200">Ingresos</td>
+                            <td id="m_ing_com" class="px-4">$0</td>
+                            <td id="m_ing_emp" class="px-4">$0</td>
+                            <td id="m_ing_usa" class="px-4">$0</td>
+                            <td id="m_ing_ter" class="px-4">$0</td>
+                            <td id="m_ing_esp" class="px-4">$0</td>
+                            <td id="m_ing_tot" class="px-4 font-bold text-white border-l border-slate-800">$0</td>
+                        </tr>
+                        <tr>
+                            <td class="text-left py-4 font-medium text-slate-200">Comisiones</td>
+                            <td id="m_com_com" class="px-4">$0</td>
+                            <td id="m_com_emp" class="px-4">$0</td>
+                            <td id="m_com_usa" class="px-4">$0</td>
+                            <td id="m_com_ter" class="px-4">$0</td>
+                            <td id="m_com_esp" class="px-4">$0</td>
+                            <td id="m_com_tot" class="px-4 font-bold text-white border-l border-slate-800">$0</td>
+                        </tr>
+                        <tr class="bg-slate-900/40 font-semibold text-white">
+                            <td class="text-left py-4 text-slate-200">Margen de contribución</td>
+                            <td id="m_mar_com" class="px-4">$0</td>
+                            <td id="m_mar_emp" class="px-4">$0</td>
+                            <td id="m_mar_usa" class="px-4">$0</td>
+                            <td id="m_mar_ter" class="px-4">$0</td>
+                            <td id="m_mar_esp" class="px-4">$0</td>
+                            <td id="m_mar_tot" class="px-4 font-bold text-white border-l border-slate-800">$0</td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </section>
 
@@ -97,15 +134,12 @@
     <script>
         const SUPABASE_URL = "https://xvuyzjwnixbvavbvmzct.supabase.co";
         const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh2dXl6anduaXhidmF2YnZtemN0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY3MTIxNDUsImV4cCI6MjEwMjI4ODE0NX0.vUFy8IvWRyrn6t0360WHKRurnIxaykwdDcOePBTOjnU";
-        
         const dbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
         let rawIngresos = [], rawComisiones = [], rawGastos = [];
-        let chartEvolucionInstance = null;
 
         async function cargarDatos() {
-            document.getElementById('statusTag').innerText = "Cargando desde Supabase...";
-            
+            document.getElementById('statusTag').innerText = "Cargando...";
             try {
                 const [resIng, resCom, resGas] = await Promise.all([
                     dbClient.from('eerr_ingresos').select('*'),
@@ -119,76 +153,79 @@
 
                 poblarAnios();
                 aplicarFiltros();
-                document.getElementById('statusTag').innerText = "🟢 Sincronizado";
+                document.getElementById('statusTag').innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Sincronizado`;
             } catch (err) {
-                console.error("Error al cargar datos:", err);
-                document.getElementById('statusTag').innerText = "🔴 Error de lectura";
+                console.error("Error al cargar:", err);
             }
         }
 
         function poblarAnios() {
-            const anios = new Set([
-                ...rawIngresos.map(d => d.anio),
-                ...rawComisiones.map(d => d.anio),
-                ...rawGastos.map(d => d.anio)
-            ]);
+            const anios = new Set([...rawIngresos.map(d => d.anio), ...rawComisiones.map(d => d.anio), ...rawGastos.map(d => d.anio)]);
             const select = document.getElementById('filtroAnio');
-            select.innerHTML = '<option value="todos">Todos los años</option>';
-            Array.from(anios).sort().reverse().forEach(a => {
-                if(a) select.innerHTML += `<option value="${a}">${a}</option>`;
-            });
+            select.innerHTML = '<option value="todos">Acumulado Total</option>';
+            Array.from(anios).sort().reverse().forEach(a => { if(a) select.innerHTML += `<option value="${a}">${a}</option>`; });
+        }
+
+        function fmt(num) {
+            return "$" + Math.round(num).toLocaleString('es-AR');
         }
 
         function aplicarFiltros() {
             const anioSel = document.getElementById('filtroAnio').value;
-            const areaSel = document.getElementById('filtroArea').value;
-
-            const filtrar = (list) => list.filter(d => 
-                (anioSel === 'todos' || String(d.anio) === String(anioSel)) &&
-                (areaSel === 'todas' || d.area_id === areaSel)
-            );
+            const filtrar = (list) => list.filter(d => (anioSel === 'todos' || String(d.anio) === String(anioSel)));
 
             const fIng = filtrar(rawIngresos);
             const fCom = filtrar(rawComisiones);
             const fGas = filtrar(rawGastos);
 
-            const totIng = fIng.reduce((acc, r) => acc + Number(r.monto_usd || 0), 0);
-            const totCom = fCom.reduce((acc, r) => acc + Number(r.monto_usd || 0), 0);
-            const totGas = fGas.reduce((acc, r) => acc + Number(r.monto_real_usd || 0), 0);
-            const totNet = (totIng + totCom) - totGas;
+            // Totales generales
+            const ingTot = fIng.reduce((a, r) => a + Number(r.monto_usd || 0), 0);
+            const comTot = fCom.reduce((a, r) => a + Number(r.monto_usd || 0), 0);
+            const marTot = ingTot - comTot;
 
-            document.getElementById('kpiIngresos').innerText = `$ ${totIng.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
-            document.getElementById('kpiComisiones').innerText = `$ ${totCom.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
-            document.getElementById('kpiGastos').innerText = `$ ${totGas.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
-            document.getElementById('kpiResultado').innerText = `$ ${totNet.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+            const opexTot = fGas.filter(r => r.tipo_rubro === 'opex').reduce((a, r) => a + Number(r.monto_real_usd || 0), 0);
+            const capexTot = fGas.filter(r => r.tipo_rubro === 'capex').reduce((a, r) => a + Number(r.monto_real_usd || 0), 0);
 
-            renderGraficos(fIng, fCom, fGas);
-        }
+            const resOp = marTot - opexTot;
+            const resNet = resOp - capexTot;
 
-        function renderGraficos(ing, com, gas) {
-            const meses = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
-            const ingMensual = Array(12).fill(0);
-            const gasMensual = Array(12).fill(0);
+            // Render KPIs
+            document.getElementById('kpiIngresos').innerText = fmt(ingTot);
+            document.getElementById('kpiComisiones').innerText = fmt(comTot);
+            document.getElementById('kpiMargenSub').innerText = `Margen contrib. ${fmt(marTot)}`;
+            document.getElementById('kpiGastos').innerText = fmt(opexTot);
+            document.getElementById('kpiResOp').innerText = fmt(resOp);
+            document.getElementById('kpiCapexSub').innerText = `CAPEX ${fmt(capexTot)}`;
+            document.getElementById('kpiResNeto').innerText = fmt(resNet);
 
-            ing.forEach(r => { if(r.mes >= 1 && r.mes <= 12) ingMensual[r.mes-1] += Number(r.monto_usd || 0); });
-            com.forEach(r => { if(r.mes >= 1 && r.mes <= 12) ingMensual[r.mes-1] += Number(r.monto_usd || 0); });
-            gas.forEach(r => { if(r.mes >= 1 && r.mes <= 12) gasMensual[r.mes-1] += Number(r.monto_real_usd || 0); });
+            // Render Tira de Formula
+            document.getElementById('fIng').innerText = fmt(ingTot);
+            document.getElementById('fCom').innerText = fmt(comTot);
+            document.getElementById('fMarg').innerText = fmt(marTot);
+            document.getElementById('fGas').innerText = fmt(opexTot);
+            document.getElementById('fOp').innerText = fmt(resOp);
+            document.getElementById('fCap').innerText = fmt(capexTot);
+            document.getElementById('fNet').innerText = fmt(resNet);
 
-            if(chartEvolucionInstance) chartEvolucionInstance.destroy();
-            chartEvolucionInstance = new Chart(document.getElementById('chartEvolucion'), {
-                type: 'line',
-                data: {
-                    labels: meses,
-                    datasets: [
-                        { label: 'Ingresos Totales', data: ingMensual, borderColor: '#10b981', tension: 0.3 },
-                        { label: 'Gastos (OPEX)', data: gasMensual, borderColor: '#f43f5e', tension: 0.3 }
-                    ]
-                },
-                options: { responsive: true, maintainAspectRatio: false }
+            // Render Matriz por Area
+            const areas = ['com', 'emp', 'usa', 'ter', 'esp'];
+            
+            areas.forEach(area => {
+                const iArea = fIng.filter(r => r.area_id === area).reduce((a, r) => a + Number(r.monto_usd || 0), 0);
+                const cArea = fCom.filter(r => r.area_id === area).reduce((a, r) => a + Number(r.monto_usd || 0), 0);
+                const mArea = iArea - cArea;
+
+                document.getElementById(`m_ing_${area}`).innerText = fmt(iArea);
+                document.getElementById(`m_com_${area}`).innerText = fmt(cArea);
+                document.getElementById(`m_mar_${area}`).innerText = fmt(mArea);
             });
+
+            document.getElementById('m_ing_tot').innerText = fmt(ingTot);
+            document.getElementById('m_com_tot').innerText = fmt(comTot);
+            document.getElementById('m_mar_tot').innerText = fmt(marTot);
         }
 
-        window.onload = cargarDatos;
+        window.onload = cargar_datos = cargarDatos;
     </script>
 </body>
 </html>
