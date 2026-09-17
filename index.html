@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard EERR - Baigun</title>
-    <!-- Tailwind CSS & Lucide Icons & Chart.js -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -15,7 +14,6 @@
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen">
 
-    <!-- Header Navigation -->
     <header class="border-b border-slate-800 bg-slate-950/50 backdrop-blur sticky top-0 z-50 px-6 py-4 flex justify-between items-center">
         <div class="flex items-center space-x-3">
             <div class="w-9 h-9 bg-indigo-600 rounded-lg flex items-center justify-center font-bold text-white text-lg shadow-lg shadow-indigo-500/30">B</div>
@@ -33,7 +31,6 @@
 
     <main class="max-w-7xl mx-auto px-6 py-8 space-y-8">
 
-        <!-- Filtros Principales -->
         <section class="bg-slate-800/60 rounded-xl p-4 border border-slate-700/50 flex flex-wrap gap-4 items-center justify-between">
             <div class="flex flex-wrap gap-4 items-center">
                 <div>
@@ -57,7 +54,6 @@
             <div id="statusTag" class="text-xs text-slate-400">Cargando datos...</div>
         </section>
 
-        <!-- KPI Cards -->
         <section class="grid grid-cols-1 md:grid-cols-4 gap-6">
             <div class="bg-slate-800/40 border border-slate-700/50 rounded-xl p-5">
                 <p class="text-xs text-slate-400 font-medium">Ingresos Totales</p>
@@ -81,7 +77,6 @@
             </div>
         </section>
 
-        <!-- Gráficos Principales -->
         <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div class="bg-slate-800/40 border border-slate-700/50 rounded-xl p-6">
                 <h4 class="text-sm font-semibold text-slate-200 mb-4">Evolución Mensual (USD)</h4>
@@ -101,27 +96,35 @@
 
     <script>
         const SUPABASE_URL = "https://xvuyzjwnixbvavbvmzct.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh2dXl6anduaXhidmF2YnZtemN0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDIzMDU0ODcsImV4cCI6MjA1Nzg4MTQ4N30.K3f-2Pms0iU_DClf31f9Z_Rk_qgS6O-oP663iO_648A";const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh2dXl6anduaXhidmF2YnZtemN0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDIzMDU0ODcsImV4cCI6MjA1Nzg4MTQ4N30.K3f-2Pms0iU_DClf31f9Z_Rk_qgS6O-oP663iO_648A";
+        
+        // Inicializar cliente con un nombre único para evitar colisiones
+        const dbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
         let rawIngresos = [], rawComisiones = [], rawGastos = [];
-        let chartEvolucionInstance = null, chartAreasInstance = null;
+        let chartEvolucionInstance = null;
 
         async function cargarDatos() {
             document.getElementById('statusTag').innerText = "Cargando desde Supabase...";
             
-            const [resIng, resCom, resGas] = await Promise.all([
-                supabase.from('eerr_ingresos').select('*'),
-                supabase.from('eerr_comisiones').select('*'),
-                supabase.from('eerr_gastos').select('*')
-            ]);
+            try {
+                const [resIng, resCom, resGas] = await Promise.all([
+                    dbClient.from('eerr_ingresos').select('*'),
+                    dbClient.from('eerr_comisiones').select('*'),
+                    dbClient.from('eerr_gastos').select('*')
+                ]);
 
-            rawIngresos = resIng.data || [];
-            rawComisiones = resCom.data || [];
-            rawGastos = resGas.data || [];
+                rawIngresos = resIng.data || [];
+                rawComisiones = resCom.data || [];
+                rawGastos = resGas.data || [];
 
-            poblarAnios();
-            aplicarFiltros();
-            document.getElementById('statusTag').innerText = "🟢 Sincronizado";
+                poblarAnios();
+                aplicarFiltros();
+                document.getElementById('statusTag').innerText = "🟢 Sincronizado";
+            } catch (err) {
+                console.error("Error al cargar datos:", err);
+                document.getElementById('statusTag').innerText = "🔴 Error de lectura";
+            }
         }
 
         function poblarAnios() {
@@ -155,10 +158,10 @@ const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
             const totGas = fGas.reduce((acc, r) => acc + Number(r.monto_real_usd || 0), 0);
             const totNet = (totIng + totCom) - totGas;
 
-            document.getElementById('kpiIngresos').innerText = `$ ${totIng.toLocaleString('en-US', {minimumFractionDigits: 2})} USD`;
-            document.getElementById('kpiComisiones').innerText = `$ ${totCom.toLocaleString('en-US', {minimumFractionDigits: 2})} USD`;
-            document.getElementById('kpiGastos').innerText = `$ ${totGas.toLocaleString('en-US', {minimumFractionDigits: 2})} USD`;
-            document.getElementById('kpiResultado').innerText = `$ ${totNet.toLocaleString('en-US', {minimumFractionDigits: 2})} USD`;
+            document.getElementById('kpiIngresos').innerText = `$ ${totIng.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+            document.getElementById('kpiComisiones').innerText = `$ ${totCom.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+            document.getElementById('kpiGastos').innerText = `$ ${totGas.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+            document.getElementById('kpiResultado').innerText = `$ ${totNet.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
 
             renderGraficos(fIng, fCom, fGas);
         }
@@ -168,9 +171,9 @@ const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
             const ingMensual = Array(12).fill(0);
             const gasMensual = Array(12).fill(0);
 
-            ing.forEach(r => { if(r.mes >= 1 && r.mes <= 12) ingMensual[r.mes-1] += Number(r.monto_usd); });
-            com.forEach(r => { if(r.mes >= 1 && r.mes <= 12) ingMensual[r.mes-1] += Number(r.monto_usd); });
-            gas.forEach(r => { if(r.mes >= 1 && r.mes <= 12) gasMensual[r.mes-1] += Number(r.monto_real_usd); });
+            ing.forEach(r => { if(r.mes >= 1 && r.mes <= 12) ingMensual[r.mes-1] += Number(r.monto_usd || 0); });
+            com.forEach(r => { if(r.mes >= 1 && r.mes <= 12) ingMensual[r.mes-1] += Number(r.monto_usd || 0); });
+            gas.forEach(r => { if(r.mes >= 1 && r.mes <= 12) gasMensual[r.mes-1] += Number(r.monto_real_usd || 0); });
 
             if(chartEvolucionInstance) chartEvolucionInstance.destroy();
             chartEvolucionInstance = new Chart(document.getElementById('chartEvolucion'), {
