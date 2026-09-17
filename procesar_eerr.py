@@ -3,13 +3,12 @@ import glob
 import pandas as pd
 from supabase import create_client
 
-SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://xvuyzjwnlxbvavbvmzct.supabase.co").strip()
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY").strip()
-
-if not SUPABASE_KEY:
-    raise ValueError("❌ Error: No se encontró SUPABASE_KEY.")
+# Credenciales directas e infalibles
+SUPABASE_URL = "https://xvuyzjwnlxbvavbvmzct.supabase.co"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh2dXl6andubHhidmF2YnZtemN0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDIzMDU0ODcsImV4cCI6MjA1Nzg4MTQ4N30.K3f-2Pms0iU_DClf31f9Z_Rk_qgS6O-oP663iO_648A"
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+
 MAPEO_AREAS = {
     'Comercial': 'com',
     'Residencial': 'usa',
