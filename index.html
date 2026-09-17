@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard EERR - Baigun</title>
+    <!-- Tailwind CSS & Lucide Icons & Chart.js -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen">
+
+    <!-- Header Navigation -->
+    <header class="border-b border-slate-800 bg-slate-950/50 backdrop-blur sticky top-0 z-50 px-6 py-4 flex justify-between items-center">
+        <div class="flex items-center space-x-3">
+            <div class="w-9 h-9 bg-indigo-600 rounded-lg flex items-center justify-center font-bold text-white text-lg shadow-lg shadow-indigo-500/30">B</div>
+            <div>
+                <h1 class="text-lg font-bold text-white tracking-tight">EERR Executive Dashboard</h1>
+                <p class="text-xs text-slate-400">Baigun Real Estate</p>
+            </div>
+        </div>
+        <div class="flex items-center gap-3">
+            <button onclick="cargarDatos()" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold rounded-md transition flex items-center gap-2">
+                🔄 Actualizar Datos
+            </button>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-6 py-8 space-y-8">
+
+        <!-- Filtros Principales -->
+        <section class="bg-slate-800/60 rounded-xl p-4 border border-slate-700/50 flex flex-wrap gap-4 items-center justify-between">
+            <div class="flex flex-wrap gap-4 items-center">
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">Año</label>
+                    <select id="filtroAnio" onchange="aplicarFiltros()" class="bg-slate-900 border border-slate-700 text-xs rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-indigo-500">
+                        <option value="todos">Todos los años</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">Área / Sector</label>
+                    <select id="filtroArea" onchange="aplicarFiltros()" class="bg-slate-900 border border-slate-700 text-xs rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-indigo-500">
+                        <option value="todas">Todas las áreas</option>
+                        <option value="com">Comercial</option>
+                        <option value="usa">Residencial (Usados)</option>
+                        <option value="emp">Emprendimientos</option>
+                        <option value="ter">Terrenos</option>
+                        <option value="esp">Especiales</option>
+                    </select>
+                </div>
+            </div>
+            <div id="statusTag" class="text-xs text-slate-400">Cargando datos...</div>
+        </section>
+
+        <!-- KPI Cards -->
+        <section class="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div class="bg-slate-800/40 border border-slate-700/50 rounded-xl p-5">
+                <p class="text-xs text-slate-400 font-medium">Ingresos Totales</p>
+                <h3 id="kpiIngresos" class="text-2xl font-bold text-emerald-400 mt-2">$0 USD</h3>
+                <p class="text-[10px] text-slate-500 mt-1">Facturación general</p>
+            </div>
+            <div class="bg-slate-800/40 border border-slate-700/50 rounded-xl p-5">
+                <p class="text-xs text-slate-400 font-medium">Comisiones Totales</p>
+                <h3 id="kpiComisiones" class="text-2xl font-bold text-cyan-400 mt-2">$0 USD</h3>
+                <p class="text-[10px] text-slate-500 mt-1">Ingreso neto por operaciones</p>
+            </div>
+            <div class="bg-slate-800/40 border border-slate-700/50 rounded-xl p-5">
+                <p class="text-xs text-slate-400 font-medium">Gastos Operativos (OPEX)</p>
+                <h3 id="kpiGastos" class="text-2xl font-bold text-rose-400 mt-2">$0 USD</h3>
+                <p class="text-[10px] text-slate-500 mt-1">Egresos operativos</p>
+            </div>
+            <div class="bg-slate-800/40 border border-slate-700/50 rounded-xl p-5">
+                <p class="text-xs text-slate-400 font-medium">Resultado Neto (EBITDA)</p>
+                <h3 id="kpiResultado" class="text-2xl font-bold text-white mt-2">$0 USD</h3>
+                <p class="text-[10px] text-slate-500 mt-1">Margen final proyectado</p>
+            </div>
+        </section>
+
+        <!-- Gráficos Principales -->
+        <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="bg-slate-800/40 border border-slate-700/50 rounded-xl p-6">
+                <h4 class="text-sm font-semibold text-slate-200 mb-4">Evolución Mensual (USD)</h4>
+                <div class="h-64">
+                    <canvas id="chartEvolucion"></canvas>
+                </div>
+            </div>
+            <div class="bg-slate-800/40 border border-slate-700/50 rounded-xl p-6">
+                <h4 class="text-sm font-semibold text-slate-200 mb-4">Distribución por Área</h4>
+                <div class="h-64 flex items-center justify-center">
+                    <canvas id="chartAreas"></canvas>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <script>
+        const SUPABASE_URL = "https://xvuyzjwnixbvavbvmzct.supabase.co";
+        const SUPABASE_KEY = "sb_publishable_LsnpSgrmFUNC3tMba2YF0g_zb_lZE2k";
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        let rawIngresos = [], rawComisiones = [], rawGastos = [];
+        let chartEvolucionInstance = null, chartAreasInstance = null;
+
+        async function cargarDatos() {
+            document.getElementById('statusTag').innerText = "Cargando desde Supabase...";
+            
+            const [resIng, resCom, resGas] = await Promise.all([
+                supabase.from('eerr_ingresos').select('*'),
+                supabase.from('eerr_comisiones').select('*'),
+                supabase.from('eerr_gastos').select('*')
+            ]);
+
+            rawIngresos = resIng.data || [];
+            rawComisiones = resCom.data || [];
+            rawGastos = resGas.data || [];
+
+            poblarAnios();
+            aplicarFiltros();
+            document.getElementById('statusTag').innerText = "🟢 Sincronizado";
+        }
+
+        function poblarAnios() {
+            const anios = new Set([
+                ...rawIngresos.map(d => d.anio),
+                ...rawComisiones.map(d => d.anio),
+                ...rawGastos.map(d => d.anio)
+            ]);
+            const select = document.getElementById('filtroAnio');
+            select.innerHTML = '<option value="todos">Todos los años</option>';
+            Array.from(anios).sort().reverse().forEach(a => {
+                if(a) select.innerHTML += `<option value="${a}">${a}</option>`;
+            });
+        }
+
+        function aplicarFiltros() {
+            const anioSel = document.getElementById('filtroAnio').value;
+            const areaSel = document.getElementById('filtroArea').value;
+
+            const filtrar = (list) => list.filter(d => 
+                (anioSel === 'todos' || String(d.anio) === String(anioSel)) &&
+                (areaSel === 'todas' || d.area_id === areaSel)
+            );
+
+            const fIng = filtrar(rawIngresos);
+            const fCom = filtrar(rawComisiones);
+            const fGas = filtrar(rawGastos);
+
+            const totIng = fIng.reduce((acc, r) => acc + Number(r.monto_usd || 0), 0);
+            const totCom = fCom.reduce((acc, r) => acc + Number(r.monto_usd || 0), 0);
+            const totGas = fGas.reduce((acc, r) => acc + Number(r.monto_real_usd || 0), 0);
+            const totNet = (totIng + totCom) - totGas;
+
+            document.getElementById('kpiIngresos').innerText = `$ ${totIng.toLocaleString('en-US', {minimumFractionDigits: 2})} USD`;
+            document.getElementById('kpiComisiones').innerText = `$ ${totCom.toLocaleString('en-US', {minimumFractionDigits: 2})} USD`;
+            document.getElementById('kpiGastos').innerText = `$ ${totGas.toLocaleString('en-US', {minimumFractionDigits: 2})} USD`;
+            document.getElementById('kpiResultado').innerText = `$ ${totNet.toLocaleString('en-US', {minimumFractionDigits: 2})} USD`;
+
+            renderGraficos(fIng, fCom, fGas);
+        }
+
+        function renderGraficos(ing, com, gas) {
+            const meses = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+            const ingMensual = Array(12).fill(0);
+            const gasMensual = Array(12).fill(0);
+
+            ing.forEach(r => { if(r.mes >= 1 && r.mes <= 12) ingMensual[r.mes-1] += Number(r.monto_usd); });
+            com.forEach(r => { if(r.mes >= 1 && r.mes <= 12) ingMensual[r.mes-1] += Number(r.monto_usd); });
+            gas.forEach(r => { if(r.mes >= 1 && r.mes <= 12) gasMensual[r.mes-1] += Number(r.monto_real_usd); });
+
+            if(chartEvolucionInstance) chartEvolucionInstance.destroy();
+            chartEvolucionInstance = new Chart(document.getElementById('chartEvolucion'), {
+                type: 'line',
+                data: {
+                    labels: meses,
+                    datasets: [
+                        { label: 'Ingresos Totales', data: ingMensual, borderColor: '#10b981', tension: 0.3 },
+                        { label: 'Gastos (OPEX)', data: gasMensual, borderColor: '#f43f5e', tension: 0.3 }
+                    ]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        }
+
+        window.onload = cargarDatos;
+    </script>
+</body>
+</html>
