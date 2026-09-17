@@ -39,6 +39,16 @@ def float_val(v):
     except:
         return 0.0
 
+def id_to_string(v):
+    """ Convierte IDs a string limpio quitando decimales tipo 3056.0 -> '3056' """
+    try:
+        if pd.isna(v): return ""
+        if isinstance(v, float):
+            return str(int(v))
+        return str(v).strip()
+    except:
+        return ""
+
 def cargar_datos_completos():
     if not os.path.exists("Ingresos.xlsx"):
         print("❌ No se encontró Ingresos.xlsx")
@@ -47,8 +57,8 @@ def cargar_datos_completos():
     print("📖 Leyendo: Ingresos.xlsx")
     df_ingresos = pd.read_excel("Ingresos.xlsx")
 
-    # Crear un diccionario indexado por el ID '#' para buscar el 'Tipo de Ingreso' instantáneamente
-    mapa_ingresos_tipo = {}
+    # Mapa de cruce: ID (#) -> { Sector, Tipo de Ingreso }
+    mapa_ingresos = {}
     registros_ingresos = []
 
     for idx, row in df_ingresos.iterrows():
@@ -57,13 +67,13 @@ def cargar_datos_completos():
             if pd.isna(fecha_val): continue
             fecha = pd.to_datetime(fecha_val)
 
-            id_operacion = row.get('#')
+            # Extraer ID de la primera columna '#'
+            id_ingreso = id_to_string(row.get('#'))
             sector = row.get('Sector', '')
             tipo_ingreso = row.get('Tipo de Ingreso', row.get('Tipo de Operación', ''))
 
-            # Guardar en el mapa de cruce
-            if not pd.isna(id_operacion):
-                mapa_ingresos_tipo[str(id_operacion).strip()] = {
+            if id_ingreso:
+                mapa_ingresos[id_ingreso] = {
                     "sector": sector,
                     "tipo": tipo_ingreso
                 }
@@ -89,32 +99,34 @@ def cargar_datos_completos():
     if registros_ingresos:
         supabase.table("eerr_ingresos").delete().neq("id", 0).execute()
         supabase.table("eerr_ingresos").insert(registros_ingresos).execute()
-        print(f"✅ Ingresos procesados: {len(registros_ingresos)} filas.")
+        print(f"✅ Ingresos procesados: {len(registros_ingresos)} filas. (Mapa creado con {len(mapa_ingresos)} IDs)")
 
-    # --- PROCESAR COMISIONES CON CRUCE POR ID (#) ---
+    # --- PROCESAR COMISIONES CON CRUCE POR 'Nº Ingreso' ---
     if os.path.exists("Comisiones.xlsx"):
         print("📖 Leyendo: Comisiones.xlsx")
         df_comisiones = pd.read_excel("Comisiones.xlsx")
 
         registros_comisiones = []
+        cruce_exitoso = 0
+
         for _, row in df_comisiones.iterrows():
             try:
                 fecha_val = row.get('Fecha')
                 if pd.isna(fecha_val): continue
                 fecha = pd.to_datetime(fecha_val)
 
-                # Intentar cruzar ID (# o Nº Ingreso) con la tabla de Ingresos
-                id_comision = row.get('#', row.get('Ingreso', row.get('Nº Ingreso')))
-                id_str = str(id_comision).strip() if not pd.isna(id_comision) else ""
+                # Buscar por la columna exacta 'Nº Ingreso'
+                no_ingreso = id_to_string(row.get('Nº Ingreso', row.get('N° Ingreso', row.get('No Ingreso'))))
 
                 sector = row.get('Sector', '')
                 tipo = row.get('Tipo', row.get('Categoría Contable', ''))
 
-                # Si encontramos el ID en Ingresos, usamos el Tipo de Ingreso real
-                if id_str in mapa_ingresos_tipo:
-                    info_ingreso = mapa_ingresos_tipo[id_str]
+                # Cruce directo con la tabla de Ingresos
+                if no_ingreso in mapa_ingresos:
+                    info_ingreso = mapa_ingresos[no_ingreso]
                     sector = info_ingreso["sector"]
                     tipo = info_ingreso["tipo"]
+                    cruce_exitoso += 1
 
                 m_com = float_val(row.get('Monto de Comision', row.get('Monto de Comisión')))
                 cotiz = float_val(row.get('Cotización', row.get('Cotizacion')))
@@ -135,7 +147,7 @@ def cargar_datos_completos():
         if registros_comisiones:
             supabase.table("eerr_comisiones").delete().neq("id", 0).execute()
             supabase.table("eerr_comisiones").insert(registros_comisiones).execute()
-            print(f"✅ Comisiones procesadas con cruce por ID #: {len(registros_comisiones)} filas.")
+            print(f"✅ Comisiones procesadas: {len(registros_comisiones)} filas. (Cruces exitosos con Ingresos: {cruce_exitoso})")
 
     # --- PROCESAR GASTOS ---
     if os.path.exists("Gastos.xlsx"):
